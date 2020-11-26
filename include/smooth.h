@@ -23,5 +23,7 @@ void smooth(
 
 void deform(
   const Eigen::MatrixXd & V,
-  const Eigen::MatrixXi & F);
+  const Eigen::MatrixXi & F,
+  const Eigen::RowVector3d & o,
+  Eigen::MatrixXd & DV);
 #endif

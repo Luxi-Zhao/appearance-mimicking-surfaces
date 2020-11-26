@@ -56,17 +56,17 @@ void laplacian(
   L_tilda.setFromTriplets(tripletList.begin(), tripletList.end());
 }
 
-// D_v
+// D_v_hat
 void sparse_v(
   const Eigen::MatrixXd & V,
-  Eigen::DiagonalMatrix<double, Eigen::Dynamic> & D_v)
+  Eigen::DiagonalMatrix<double, Eigen::Dynamic> & D_v_hat)
 {
-  D_v.resize(V.rows() * 3);
-  D_v.setZero();
+  D_v_hat.resize(V.rows() * 3);
+  D_v_hat.setZero();
 
   for(int i = 0; i < V.rows(); i++) {
     for(int j = 0; j < 3; j++) {
-      D_v.diagonal()[3 * i + j] = V(i, j);
+      D_v_hat.diagonal()[3 * i + j] = V(i, j);
     }
   }
 }
@@ -96,19 +96,20 @@ void get_lambda(
 void get_L_theta(
   const Eigen::VectorXd & S_lambda0,
   const Eigen::SparseMatrix<double> & L_tilda0,
-  const Eigen::DiagonalMatrix<double, Eigen::Dynamic> & D_v,
+  const Eigen::DiagonalMatrix<double, Eigen::Dynamic> & D_v_hat,
   Eigen::VectorXd & L_theta)
 {
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_S_lambda0;
   D_S_lambda0.diagonal() = S_lambda0;
 
   L_theta.setZero();
-  L_theta = D_S_lambda0.inverse() * L_tilda0 * D_v * S_lambda0;
+  L_theta = D_S_lambda0.inverse() * L_tilda0 * D_v_hat * S_lambda0;
 }
 
 void deform(
   const Eigen::MatrixXd & V,
   const Eigen::MatrixXi & F,
+  const Eigen::RowVector3d & o,
   Eigen::MatrixXd & DV)
 {
   std::cout << "testing deform" << std::endl;
@@ -129,10 +130,12 @@ void deform(
   std::cout << "getting lambda0" << std::endl;
 
   // lambda0
-  Eigen::RowVector3d o;
-  o.setZero();
+//  Eigen::RowVector3d o;
+//  o.setZero();
   Eigen::VectorXd lambda0;
   get_lambda(V, o, lambda0);
+  std::cout << "---got lambda0----" << std::endl;
+  std::cout << lambda0 << std::endl;
 
   std::cout << "getting L_tilda0" << std::endl;
 
@@ -140,18 +143,19 @@ void deform(
   Eigen::SparseMatrix<double> L_tilda0;
   laplacian(V, F, M, L_tilda0);
 
-  std::cout << "getting D_v" << std::endl;
+  std::cout << "getting D_v_hat" << std::endl;
 
-  // D_v
-  Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_v;
-  sparse_v(V, D_v);
+  // D_v_hat
+  Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_v_hat;
+  Eigen::MatrixXd V_hat = V.rowwise().normalized();
+  sparse_v(V_hat, D_v_hat);
 
   std::cout << "getting L_theta" << std::endl;
 
   // L_theta
   Eigen::VectorXd S_lambda0 = S * lambda0;
   Eigen::VectorXd L_theta;
-  get_L_theta(S_lambda0, L_tilda0, D_v, L_theta);
+  get_L_theta(S_lambda0, L_tilda0, D_v_hat, L_theta);
   assert(L_theta.size() == 3 * V.rows());
 
   std::cout << "getting D_L_theta" << std::endl;
@@ -165,24 +169,24 @@ void deform(
   std::cout << "getting A" << std::endl;
 
   Eigen::SparseMatrix<double> A, Q;
-  A = D_A * (L_tilda0 * D_v - D_L_theta) * S;
+  A = D_A * (L_tilda0 * D_v_hat - D_L_theta) * S;
   Q = A.transpose() * A;
 
   std::cout << "preparing constraints" << std::endl;
   // There are no linear coefficients so set B to 0
   Eigen::MatrixXd B = Eigen::MatrixXd::Zero(V.rows(), 1);
 
+  double lambda_lo = 0.1;
+  double lambda_hi = 0.2;
   // Fix the value for lambda for the 0th vertex
   Eigen::VectorXi b(1);
   Eigen::VectorXd Y(1);
   b(0) = 0;
-  Y(0) = 0.5;
+  Y(0) = (lambda_lo + lambda_hi) / 2.0;
 
   Eigen::SparseMatrix<double> Aeq, Aieq;
   Eigen::VectorXd Beq, Bieq;
   Eigen::VectorXd lx, ux;
-  double lambda_lo = 0.2;
-  double lambda_hi = 0.8;
   lx = Eigen::VectorXd::Ones(V.rows(), 1) * lambda_lo;
   ux = Eigen::VectorXd::Ones(V.rows(), 1) * lambda_hi;
 
@@ -196,7 +200,9 @@ void deform(
   std::cout << lambda << std::endl;
 
   // Use lambdas to transform vertices
-
+  std::cout << "getting DV" << std::endl;
+  DV.resize(V.rows(), V.cols());
+  DV = (V_hat.array().colwise() * lambda.array()).matrix();
 }
 
 void smooth(
