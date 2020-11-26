@@ -1,8 +1,11 @@
 #include "smooth.h"
-#include <igl/edge_lengths.h>
 #include <igl/cotmatrix.h>
 #include <igl/massmatrix.h>
 #include <igl/repdiag.h>
+#include <igl/invert_diag.h>
+#include <igl/min_quad_with_fixed.h>
+#include <igl/active_set.h>
+#include <iostream>
 
 typedef Eigen::Triplet<double> T;
 
@@ -10,10 +13,9 @@ typedef Eigen::Triplet<double> T;
 void voronoi_area(
   const Eigen::MatrixXd & V,
   const Eigen::MatrixXi & F,
+  const Eigen::SparseMatrix<double> & M,
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> & D_A)
 {
-  Eigen::SparseMatrix<double> M;
-  igl::massmatrix(V, F, igl::MASSMATRIX_TYPE_VORONOI, M);
   Eigen::VectorXd M_diag = M.diagonal();
   assert(M_diag.size() == V.rows());
 
@@ -31,10 +33,13 @@ void voronoi_area(
 void laplacian(
   const Eigen::MatrixXd & V,
   const Eigen::MatrixXi & F,
+  const Eigen::SparseMatrix<double> & M,
   Eigen::SparseMatrix<double> & L_tilda)
 {
-  Eigen::SparseMatrix<double> L;
-  igl::cotmatrix(V, F, L);
+  Eigen::SparseMatrix<double> cot, M_inv, L;
+  igl::cotmatrix(V, F, cot);
+  igl::invert_diag(M, M_inv);
+  L = M_inv * cot;
 
   std::vector<T> tripletList;
   tripletList.reserve(V.rows() * V.rows() * 3);
@@ -71,13 +76,12 @@ void selector(
   const Eigen::MatrixXd & V,
   Eigen::SparseMatrix<double> & S)
 {
-  Eigen::SparseMatrix<double> ones(3, 0);
-  for(int i = 0; i < 3; i++) {
-    ones.insert(i, 0) = 1.0;
-  }
+  Eigen::Vector3d ones(3);
+  ones.setOnes();
+  Eigen::SparseMatrix<double> ones_sp = ones.sparseView();
 
   S.resize(3 * V.rows(), V.rows());
-  igl::repdiag(ones, V.rows(), S);
+  igl::repdiag(ones_sp, V.rows(), S);
 }
 
 void get_lambda(
@@ -86,13 +90,13 @@ void get_lambda(
   Eigen::VectorXd & lambda)
 {
   lambda.resize(V.rows());
-  lambda << (V.rowwise() - o).norm();
+  lambda = (V.rowwise() - o).rowwise().norm();
 }
 
 void get_L_theta(
   const Eigen::VectorXd & S_lambda0,
-  const Eigen::SparseMatrix<double> L_tilda0,
-  const Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_v,
+  const Eigen::SparseMatrix<double> & L_tilda0,
+  const Eigen::DiagonalMatrix<double, Eigen::Dynamic> & D_v,
   Eigen::VectorXd & L_theta)
 {
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_S_lambda0;
@@ -105,15 +109,24 @@ void get_L_theta(
 void deform(
   const Eigen::MatrixXd & V,
   const Eigen::MatrixXi & F,
-  Eigen::VectorXd & lambda)
+  Eigen::MatrixXd & DV)
 {
+  std::cout << "testing deform" << std::endl;
+
+  Eigen::SparseMatrix<double> M;
+  igl::massmatrix(V, F, igl::MASSMATRIX_TYPE_VORONOI, M);
+
+  std::cout << "getting D_A" << std::endl;
   // D_A
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_A;
-  voronoi_area(V, F, D_A);
+  voronoi_area(V, F, M, D_A);
 
+  std::cout << "getting S" << std::endl;
   // S
   Eigen::SparseMatrix<double> S;
   selector(V, S);
+
+  std::cout << "getting lambda0" << std::endl;
 
   // lambda0
   Eigen::RowVector3d o;
@@ -121,13 +134,19 @@ void deform(
   Eigen::VectorXd lambda0;
   get_lambda(V, o, lambda0);
 
+  std::cout << "getting L_tilda0" << std::endl;
+
   // L_tilda0
   Eigen::SparseMatrix<double> L_tilda0;
-  laplacian(V, F, L_tilda0);
+  laplacian(V, F, M, L_tilda0);
+
+  std::cout << "getting D_v" << std::endl;
 
   // D_v
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_v;
   sparse_v(V, D_v);
+
+  std::cout << "getting L_theta" << std::endl;
 
   // L_theta
   Eigen::VectorXd S_lambda0 = S * lambda0;
@@ -135,14 +154,48 @@ void deform(
   get_L_theta(S_lambda0, L_tilda0, D_v, L_theta);
   assert(L_theta.size() == 3 * V.rows());
 
+  std::cout << "getting D_L_theta" << std::endl;
+
   // D_L_theta
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_L_theta_diag;
   D_L_theta_diag.diagonal() = L_theta;
   Eigen::SparseMatrix<double> D_L_theta;
   D_L_theta = D_L_theta_diag;
 
-  Eigen::SparseMatrix<double> A;
+  std::cout << "getting A" << std::endl;
+
+  Eigen::SparseMatrix<double> A, Q;
   A = D_A * (L_tilda0 * D_v - D_L_theta) * S;
+  Q = A.transpose() * A;
+
+  std::cout << "preparing constraints" << std::endl;
+  // There are no linear coefficients so set B to 0
+  Eigen::MatrixXd B = Eigen::MatrixXd::Zero(V.rows(), 1);
+
+  // Fix the value for lambda for the 0th vertex
+  Eigen::VectorXi b(1);
+  Eigen::VectorXd Y(1);
+  b(0) = 0;
+  Y(0) = 0.5;
+
+  Eigen::SparseMatrix<double> Aeq, Aieq;
+  Eigen::VectorXd Beq, Bieq;
+  Eigen::VectorXd lx, ux;
+  double lambda_lo = 0.2;
+  double lambda_hi = 0.8;
+  lx = Eigen::VectorXd::Ones(V.rows(), 1) * lambda_lo;
+  ux = Eigen::VectorXd::Ones(V.rows(), 1) * lambda_hi;
+
+  igl::active_set_params as;
+  Eigen::VectorXd lambda;
+
+  std::cout << "solving for lambdas" << std::endl;
+  igl::active_set(Q, B, b, Y, Aeq, Beq, Aieq, Bieq, lx, ux, as, lambda);
+
+  std::cout << "got lambda" << std::endl;
+  std::cout << lambda << std::endl;
+
+  // Use lambdas to transform vertices
 
 }
 

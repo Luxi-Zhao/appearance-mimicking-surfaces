@@ -20,4 +20,8 @@ void smooth(
     const Eigen::MatrixXd & G,
     double lambda,
     Eigen::MatrixXd & U);
+
+void deform(
+  const Eigen::MatrixXd & V,
+  const Eigen::MatrixXi & F);
 #endif
