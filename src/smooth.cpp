@@ -155,6 +155,7 @@ void deform(
   const Eigen::RowVector3d & o,
   const Eigen::VectorXd & lambda_lo,
   const Eigen::VectorXd & lambda_hi,
+  double lambda_known,
   Eigen::MatrixXd & DV)
 {
   std::cout << "testing deform" << std::endl;
@@ -254,7 +255,13 @@ void deform(
   Eigen::VectorXi b(1);
   Eigen::VectorXd Y(1);
   b(0) = 0;
-  Y(0) = lambda_hi[0];
+  Y(0) = lambda_known;
+//  Y(0) = (lambda_hi[0] + lambda_lo[0])/2;
+
+  std::cout << "Y(0)" << std::endl;
+  std::cout << Y(0) << std::endl;
+  std::cout << lambda_hi[0] << std::endl;
+
 
   Eigen::SparseMatrix<double> Aeq, Aieq;
   Eigen::VectorXd Beq, Bieq;

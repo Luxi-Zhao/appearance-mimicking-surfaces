@@ -30,7 +30,7 @@ int main(int argc, char *argv[])
   Eigen::MatrixXd V,DV;
   Eigen::MatrixXi F;
   igl::read_triangle_mesh(
-    (argc>1?argv[1]:"../data/cube.obj"),V,F);
+    (argc>1?argv[1]:"../data/icosphere.obj"),V,F);
   igl::opengl::glfw::Viewer viewer;
   std::cout<<R"(
 [space]  Toggle whether displaying 3D surface or 2D parameterization
@@ -59,15 +59,42 @@ l        Switch parameterization to Least squares conformal mapping
   // TODO add the other 7 points
   Eigen::MatrixXd lambda_bounds(1, 2);
 
-//  double max = 0.8;
-//  double min = 1.0;
-  double max = 0;
-  double min = 0.1;
-  Eigen::VectorXd lambda_lo, lambda_hi;
+  double v_fixed_z = V(0, 2);
+  double v_min_z = V.col(2).array().minCoeff();
+  double v_max_z = V.col(2).array().maxCoeff();
+
+  double orig_depth = v_max_z - v_min_z;
+  double half_depth = orig_depth / 2.0;
+  double quarter_depth = half_depth / 2.0;
+  double mesh_midpoint = (v_max_z + v_min_z) / 2.0;
+  double max = mesh_midpoint - quarter_depth;
+  double min = mesh_midpoint + quarter_depth;
+
   Eigen::RowVector3d o = V_vp.row(0);
   Eigen::MatrixXd V_hat = (V.rowwise() - o).rowwise().normalized();
+
+  double pos_fixed = max + (v_fixed_z - v_min_z) / (v_max_z - v_min_z) * (min - max);
+  double lambda_known = (pos_fixed - o(2)) / V_hat(0, 2);
+
+//  double max = 0.8;
+//  double min = 1.0;
+//  double max = 0;
+//  double min = 0.4;
+  Eigen::VectorXd lambda_lo, lambda_hi;
   lambda_lo = ((min - o(2)) / V_hat.col(2).array()).matrix(); // TODO generalize this
   lambda_hi = ((max - o(2)) / V_hat.col(2).array()).matrix(); // TODO generalize this
+
+
+
+
+
+
+  std::cout << "lambda known: " << lambda_known << "\n";
+  std::cout << "lambda hi: " << lambda_hi[0] << "\n";
+  std::cout << "lambda lo: " << lambda_lo[0] << "\n";
+  if(lambda_known <= lambda_hi[0] && lambda_known >= lambda_lo[0]) {
+    std::cout << "lambda known is good" << "\n";
+  }
 
   bool deforming = false;
 
@@ -75,7 +102,7 @@ l        Switch parameterization to Least squares conformal mapping
   {
       if(deforming)
       {
-        deform(V, F, o, lambda_lo, lambda_hi, DV);
+        deform(V, F, o, lambda_lo, lambda_hi, lambda_known, DV);
         viewer.data().set_vertices(DV);
       } else
       {
@@ -110,7 +137,7 @@ l        Switch parameterization to Least squares conformal mapping
 
   // Corners of the bounding box
   // TODO change this back to 8 later, vp is for testing only
-  Eigen::MatrixXd V_box(9,3);
+  Eigen::MatrixXd V_box(10,3);
   V_box <<
     m(0), m(1), m(2),
     M(0), m(1), m(2),
@@ -120,7 +147,8 @@ l        Switch parameterization to Least squares conformal mapping
     M(0), m(1), M(2),
     M(0), M(1), M(2),
     m(0), M(1), M(2),
-    V_vp.row(0);
+    V_vp.row(0),
+    V.row(0);
 
   // Edges of the bounding box
   // TODO change this back to 12 later
