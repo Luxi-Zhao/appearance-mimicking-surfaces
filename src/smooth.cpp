@@ -110,6 +110,8 @@ void deform(
   const Eigen::MatrixXd & V,
   const Eigen::MatrixXi & F,
   const Eigen::RowVector3d & o,
+  double lambda_lo,
+  double lambda_hi,
   Eigen::MatrixXd & DV)
 {
   std::cout << "testing deform" << std::endl;
@@ -147,7 +149,7 @@ void deform(
 
   // D_v_hat
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_v_hat;
-  Eigen::MatrixXd V_hat = V.rowwise().normalized();
+  Eigen::MatrixXd V_hat = (V.rowwise() - o).rowwise().normalized();
   sparse_v(V_hat, D_v_hat);
 
   std::cout << "getting L_theta" << std::endl;
@@ -176,13 +178,11 @@ void deform(
   // There are no linear coefficients so set B to 0
   Eigen::MatrixXd B = Eigen::MatrixXd::Zero(V.rows(), 1);
 
-  double lambda_lo = 0.1;
-  double lambda_hi = 0.2;
   // Fix the value for lambda for the 0th vertex
   Eigen::VectorXi b(1);
   Eigen::VectorXd Y(1);
   b(0) = 0;
-  Y(0) = (lambda_lo + lambda_hi) / 2.0;
+  Y(0) = lambda_hi;
 
   Eigen::SparseMatrix<double> Aeq, Aieq;
   Eigen::VectorXd Beq, Bieq;
@@ -203,6 +203,9 @@ void deform(
   std::cout << "getting DV" << std::endl;
   DV.resize(V.rows(), V.cols());
   DV = (V_hat.array().colwise() * lambda.array()).matrix();
+  DV = DV.rowwise() + o;
+
+  std::cout << "DONE" << std::endl;
 }
 
 void smooth(

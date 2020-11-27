@@ -25,5 +25,7 @@ void deform(
   const Eigen::MatrixXd & V,
   const Eigen::MatrixXi & F,
   const Eigen::RowVector3d & o,
+  double lambda_lo,
+  double lambda_hi,
   Eigen::MatrixXd & DV);
 #endif

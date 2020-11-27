@@ -44,24 +44,31 @@ l        Switch parameterization to Least squares conformal mapping
   const Eigen::RowVector3d blue(0.2,0.3,0.8);
   const Eigen::RowVector3d green(0.2,0.6,0.3);
 
-  //deform(V, F, DV);
-  bool deform = false;
-  bool place_viewpoint = false;
+  // Find the bounding box
+  Eigen::Vector3d m = V.colwise().minCoeff();
+  Eigen::Vector3d M = V.colwise().maxCoeff();
 
-  Eigen::MatrixXd P(1,2);
-//  P.row(0) = Eigen::RowVector3f(0, 0, 0);
-//  P.row(1) = Eigen::RowVector3d(0, 0, 5);
-  Eigen::RowVector3f last_mouse;
+  // Predetermined view points based on bounding box
+  // TODO add the other 7 points
+  Eigen::MatrixXd V_vp(1,3);
+  V_vp <<
+       (M(0)+m(0))/2.0, (M(1)+m(1))/2.0, 10.0 * M(2);
+
+  // Lambda bounds according to view point
+  // TODO add the other 7 points
+  Eigen::MatrixXd lambda_bounds(1, 2);
+  double lambda_hi = (V_vp.row(0) - Eigen::RowVector3d(m(0), m(1), m(2))).norm();
+  double lambda_lo = lambda_hi * 0.93;
+
+  bool deforming = false;
 
   const auto & update = [&]()
   {
-      if(place_viewpoint) {
-        viewer.data().set_points(P, yellow);
-      }
-      if(deform)
+      if(deforming)
       {
+        deform(V, F, V_vp.row(0), lambda_lo, lambda_hi, DV);
         viewer.data().set_vertices(DV);
-      }else
+      } else
       {
         viewer.data().set_vertices(V);
       }
@@ -74,7 +81,7 @@ l        Switch parameterization to Least squares conformal mapping
         switch(key)
         {
           case ' ':
-            deform ^= 1;
+            deforming ^= 1;
             break;
           case 'C':
           case 'c':
@@ -84,9 +91,6 @@ l        Switch parameterization to Least squares conformal mapping
             std::cout << viewer.core().camera_eye << "\n";
             std::cout << viewer.core().light_position << "\n";
             break;
-          case 'v':
-            place_viewpoint ^= 1;
-            break;
           default:
             return false;
         }
@@ -94,43 +98,56 @@ l        Switch parameterization to Least squares conformal mapping
         return true;
     };
 
-  viewer.callback_mouse_down =
-    [&](igl::opengl::glfw::Viewer&, int, int)->bool
-    {
-        last_mouse = Eigen::RowVector3f(
-          viewer.current_mouse_x,viewer.core().viewport(3)-viewer.current_mouse_y,0);
-        if(place_viewpoint){
-          // Find closest point on mesh to mouse position
-          int fid;
-          Eigen::Vector3f bary;
-          if(igl::unproject_onto_mesh(
-            last_mouse.head(2),
-            viewer.core().view,
-            viewer.core().proj,
-            viewer.core().viewport,
-            V, F,
-            fid, bary))
-          {
-            long c;
-            bary.maxCoeff(&c);
-            Eigen::RowVector3d new_c = V.row(F(fid,c));
-            if(P.size()==0 || (P.rowwise()-new_c).rowwise().norm().minCoeff() > 0)
-            {
-              P.conservativeResize(P.rows()+1,3);
-              // Snap to closest vertex on hit face
-              P.row(P.rows()-1) = new_c;
-              update();
-              return true;
-            }
-          }
-        }
-        return false;
-    };
+
+  // Corners of the bounding box
+  // TODO change this back to 8 later, vp is for testing only
+  Eigen::MatrixXd V_box(9,3);
+  V_box <<
+    m(0), m(1), m(2),
+    M(0), m(1), m(2),
+    M(0), M(1), m(2),
+    m(0), M(1), m(2),
+    m(0), m(1), M(2),
+    M(0), m(1), M(2),
+    M(0), M(1), M(2),
+    m(0), M(1), M(2),
+    V_vp.row(0);
+
+  // Edges of the bounding box
+  // TODO change this back to 12 later
+  Eigen::MatrixXi E_box(13,2);
+  E_box <<
+        0, 1,
+    1, 2,
+    2, 3,
+    3, 0,
+    4, 5,
+    5, 6,
+    6, 7,
+    7, 4,
+    0, 4,
+    1, 5,
+    2, 6,
+    7 ,3,
+    0, 8;
+
+  // Plot the corners of the bounding box as points
+  viewer.data().add_points(V_box,Eigen::RowVector3d(1,0,0));
+
+  // Plot the edges of the bounding box
+  for (unsigned i=0;i<E_box.rows(); ++i)
+    viewer.data().add_edges
+      (
+        V_box.row(E_box(i,0)),
+        V_box.row(E_box(i,1)),
+        Eigen::RowVector3d(1,0,0)
+      );
+
 
   viewer.data().set_mesh(V,F);
   Eigen::MatrixXd N;
   igl::per_vertex_normals(V,F,N);
-  viewer.data().set_colors(N.array()*0.5+0.5);
+  viewer.data().set_colors(yellow);
   update();
   viewer.data().show_texture = true;
   viewer.data().show_lines = false;
