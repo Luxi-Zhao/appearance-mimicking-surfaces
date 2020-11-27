@@ -1,5 +1,6 @@
 #include "smooth.h"
 #include <igl/read_triangle_mesh.h>
+#include <igl/write_triangle_mesh.h>
 #include <igl/parula.h>
 #include <igl/opengl/glfw/Viewer.h>
 #include <igl/ambient_occlusion.h>
@@ -64,8 +65,7 @@ l        Switch parameterization to Least squares conformal mapping
   double v_max_z = V.col(2).array().maxCoeff();
 
   double orig_depth = v_max_z - v_min_z;
-  double half_depth = orig_depth / 2.0;
-  double quarter_depth = half_depth / 2.0;
+  double quarter_depth = orig_depth / 6.0;
   double mesh_midpoint = (v_max_z + v_min_z) / 2.0;
   double max = mesh_midpoint - quarter_depth;
   double min = mesh_midpoint + quarter_depth;
@@ -76,19 +76,11 @@ l        Switch parameterization to Least squares conformal mapping
   double pos_fixed = max + (v_fixed_z - v_min_z) / (v_max_z - v_min_z) * (min - max);
   double lambda_known = (pos_fixed - o(2)) / V_hat(0, 2);
 
-//  double max = 0.8;
-//  double min = 1.0;
-//  double max = 0;
-//  double min = 0.4;
   Eigen::VectorXd lambda_lo, lambda_hi;
   lambda_lo = ((min - o(2)) / V_hat.col(2).array()).matrix(); // TODO generalize this
   lambda_hi = ((max - o(2)) / V_hat.col(2).array()).matrix(); // TODO generalize this
 
-
-
-
-
-
+  // TODO clean up here
   std::cout << "lambda known: " << lambda_known << "\n";
   std::cout << "lambda hi: " << lambda_hi[0] << "\n";
   std::cout << "lambda lo: " << lambda_lo[0] << "\n";
@@ -104,6 +96,7 @@ l        Switch parameterization to Least squares conformal mapping
       {
         deform(V, F, o, lambda_lo, lambda_hi, lambda_known, DV);
         viewer.data().set_vertices(DV);
+        igl::write_triangle_mesh("../data/output.obj",DV,F);
       } else
       {
         viewer.data().set_vertices(V);
