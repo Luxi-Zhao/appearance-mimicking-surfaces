@@ -43,6 +43,7 @@ l        Switch parameterization to Least squares conformal mapping
   const Eigen::RowVector3d yellow(1.0,0.9,0.2);
   const Eigen::RowVector3d blue(0.2,0.3,0.8);
   const Eigen::RowVector3d green(0.2,0.6,0.3);
+  const Eigen::RowVector3d white(1.0,1.0,1.0);
 
   // Find the bounding box
   Eigen::Vector3d m = V.colwise().minCoeff();
@@ -52,13 +53,21 @@ l        Switch parameterization to Least squares conformal mapping
   // TODO add the other 7 points
   Eigen::MatrixXd V_vp(1,3);
   V_vp <<
-       (M(0)+m(0))/2.0, (M(1)+m(1))/2.0, 10.0 * M(2);
+       (M(0)+m(0))/2.0, (M(1)+m(1))/2.0, 2.0 * M(2);
 
   // Lambda bounds according to view point
   // TODO add the other 7 points
   Eigen::MatrixXd lambda_bounds(1, 2);
-  double lambda_hi = (V_vp.row(0) - Eigen::RowVector3d(m(0), m(1), m(2))).norm();
-  double lambda_lo = lambda_hi * 0.93;
+
+//  double max = 0.8;
+//  double min = 1.0;
+  double max = 0;
+  double min = 0.1;
+  Eigen::VectorXd lambda_lo, lambda_hi;
+  Eigen::RowVector3d o = V_vp.row(0);
+  Eigen::MatrixXd V_hat = (V.rowwise() - o).rowwise().normalized();
+  lambda_lo = ((min - o(2)) / V_hat.col(2).array()).matrix(); // TODO generalize this
+  lambda_hi = ((max - o(2)) / V_hat.col(2).array()).matrix(); // TODO generalize this
 
   bool deforming = false;
 
@@ -66,7 +75,7 @@ l        Switch parameterization to Least squares conformal mapping
   {
       if(deforming)
       {
-        deform(V, F, V_vp.row(0), lambda_lo, lambda_hi, DV);
+        deform(V, F, o, lambda_lo, lambda_hi, DV);
         viewer.data().set_vertices(DV);
       } else
       {
@@ -147,7 +156,7 @@ l        Switch parameterization to Least squares conformal mapping
   viewer.data().set_mesh(V,F);
   Eigen::MatrixXd N;
   igl::per_vertex_normals(V,F,N);
-  viewer.data().set_colors(yellow);
+  viewer.data().set_colors(white);
   update();
   viewer.data().show_texture = true;
   viewer.data().show_lines = false;

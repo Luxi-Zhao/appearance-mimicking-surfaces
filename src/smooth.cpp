@@ -5,11 +5,14 @@
 #include <igl/invert_diag.h>
 #include <igl/min_quad_with_fixed.h>
 #include <igl/active_set.h>
+#include <igl/cat.h>
+#include <math.h>
 #include <iostream>
 
 typedef Eigen::Triplet<double> T;
 
 // D_A
+// TODO remove v and f
 void voronoi_area(
   const Eigen::MatrixXd & V,
   const Eigen::MatrixXi & F,
@@ -28,6 +31,31 @@ void voronoi_area(
     }
   }
 }
+
+// TODO maybe generalize this
+void get_weights(
+  const Eigen::MatrixXd & V,
+  Eigen::DiagonalMatrix<double, Eigen::Dynamic> & D_w)
+{
+  D_w.resize(V.rows() * 3);
+  D_w.setZero();
+  Eigen::Vector3d m = V.colwise().minCoeff();
+  Eigen::Vector3d M = V.colwise().maxCoeff();
+  double threshold = (M(2) + m(2)) / 2.0;
+  for(int i = 0; i < V.rows(); i++) {
+    double z = V(i, 2);
+    double weight = 1.0;
+    if(z < threshold) {
+      // TODO these weights introduce spikes in the mesh
+      // it's better to not have them
+      weight = 1.0;
+    }
+    for(int j = 0; j < 3; j++) {
+      D_w.diagonal()[3 * i + j] = weight;
+    }
+  }
+}
+
 
 // L_tilda
 void laplacian(
@@ -106,15 +134,41 @@ void get_L_theta(
   L_theta = D_S_lambda0.inverse() * L_tilda0 * D_v_hat * S_lambda0;
 }
 
+void diag_concat(
+  const Eigen::SparseMatrix<double> & A,
+  const Eigen::SparseMatrix<double> & B,
+  Eigen::SparseMatrix<double> & C)
+{
+  Eigen::SparseMatrix<double> zeros_A, zeros_B, row1, row2;
+  zeros_A.resize(A.rows(), A.cols());
+  zeros_B.resize(B.rows(), B.cols());
+
+  igl::cat(2, A, zeros_A, row1);
+  igl::cat(2, zeros_B, B, row2);
+  igl::cat(1, row1, row2, C);
+}
+
+
 void deform(
   const Eigen::MatrixXd & V,
   const Eigen::MatrixXi & F,
   const Eigen::RowVector3d & o,
-  double lambda_lo,
-  double lambda_hi,
+  const Eigen::VectorXd & lambda_lo,
+  const Eigen::VectorXd & lambda_hi,
   Eigen::MatrixXd & DV)
 {
   std::cout << "testing deform" << std::endl;
+  std::cout << "lambda_lo" << std::endl;
+//  std::cout << lambda_lo << std::endl;
+  std::cout << "lambda_hi" << std::endl;
+//  std::cout << lambda_hi << std::endl;
+  double test = (lambda_hi.array()-lambda_lo.array()).minCoeff();
+  if(test <= 0) {
+    std::cout << "ASSERT FAILED!!!!!!!!" << std::endl;
+  } else {
+    std::cout << "assert passed" << std::endl;
+  }
+  assert((lambda_hi.array()-lambda_lo.array()).minCoeff() > 0 && "ux(i) must be > lx(i)");
 
   Eigen::SparseMatrix<double> M;
   igl::massmatrix(V, F, igl::MASSMATRIX_TYPE_VORONOI, M);
@@ -124,6 +178,13 @@ void deform(
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_A;
   voronoi_area(V, F, M, D_A);
 
+  std::cout << "getting D_w" << std::endl;
+
+  // D_w
+  Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_w;
+  get_weights(V, D_w);
+  Eigen::SparseMatrix<double> D_W = D_w.toDenseMatrix().sparseView();
+
   std::cout << "getting S" << std::endl;
   // S
   Eigen::SparseMatrix<double> S;
@@ -132,12 +193,10 @@ void deform(
   std::cout << "getting lambda0" << std::endl;
 
   // lambda0
-//  Eigen::RowVector3d o;
-//  o.setZero();
   Eigen::VectorXd lambda0;
   get_lambda(V, o, lambda0);
   std::cout << "---got lambda0----" << std::endl;
-  std::cout << lambda0 << std::endl;
+//  std::cout << lambda0 << std::endl;
 
   std::cout << "getting L_tilda0" << std::endl;
 
@@ -168,37 +227,54 @@ void deform(
   Eigen::SparseMatrix<double> D_L_theta;
   D_L_theta = D_L_theta_diag;
 
-  std::cout << "getting A" << std::endl;
+  std::cout << "getting Q" << std::endl;
 
-  Eigen::SparseMatrix<double> A, Q;
-  A = D_A * (L_tilda0 * D_v_hat - D_L_theta) * S;
-  Q = A.transpose() * A;
+  Eigen::SparseMatrix<double> Q;
+  Q = D_A * D_W * (L_tilda0 * D_v_hat - D_L_theta) * S;
+
+  std::cout << "getting F" << std::endl;
+
+  // F
+  double alpha_sqrt = sqrt(pow(10.0, -7.0));
+  Eigen::SparseMatrix<double> I = alpha_sqrt * Eigen::MatrixXd::Identity(V.rows(), V.rows()).sparseView();
+  Eigen::SparseMatrix<double> J, K;
+  diag_concat(Q, I, J);
+  K = J.transpose() * J;
 
   std::cout << "preparing constraints" << std::endl;
+  long n = 2 * V.rows();
+  assert(K.rows() == n);
+  assert(K.cols() == n);
   // There are no linear coefficients so set B to 0
-  Eigen::MatrixXd B = Eigen::MatrixXd::Zero(V.rows(), 1);
+  Eigen::MatrixXd B = Eigen::MatrixXd::Zero(n, 1);
 
   // Fix the value for lambda for the 0th vertex
+  // to get a unique solution
+  // TODO this probably should be customized
   Eigen::VectorXi b(1);
   Eigen::VectorXd Y(1);
   b(0) = 0;
-  Y(0) = lambda_hi;
+  Y(0) = lambda_hi[0];
 
   Eigen::SparseMatrix<double> Aeq, Aieq;
   Eigen::VectorXd Beq, Bieq;
-  Eigen::VectorXd lx, ux;
-  lx = Eigen::VectorXd::Ones(V.rows(), 1) * lambda_lo;
-  ux = Eigen::VectorXd::Ones(V.rows(), 1) * lambda_hi;
+  Eigen::VectorXd lx(n), ux(n);
+  lx << lambda_lo, lambda_lo;
+  ux << lambda_hi, lambda_hi;
 
   igl::active_set_params as;
-  Eigen::VectorXd lambda;
+  Eigen::VectorXd x;
 
-  std::cout << "solving for lambdas" << std::endl;
-  igl::active_set(Q, B, b, Y, Aeq, Beq, Aieq, Bieq, lx, ux, as, lambda);
+  std::cout << "solving for x's" << std::endl;
+  igl::active_set(K, B, b, Y, Aeq, Beq, Aieq, Bieq, lx, ux, as, x);
 
-  std::cout << "got lambda" << std::endl;
-  std::cout << lambda << std::endl;
+  std::cout << "got x's" << std::endl;
+  std::cout << x << std::endl;
 
+  // Extract lambda and mu from x
+  Eigen::VectorXd lambda, mu;
+  lambda = x.head(V.rows());
+  mu = x.tail(V.rows());
   // Use lambdas to transform vertices
   std::cout << "getting DV" << std::endl;
   DV.resize(V.rows(), V.cols());
