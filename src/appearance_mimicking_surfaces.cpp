@@ -1,4 +1,4 @@
-#include "smooth.h"
+#include "appearance_mimicking_surfaces.h"
 #include <igl/cotmatrix.h>
 #include <igl/massmatrix.h>
 #include <igl/repdiag.h>

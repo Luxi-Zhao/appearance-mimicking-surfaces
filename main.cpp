@@ -1,4 +1,4 @@
-#include "smooth.h"
+#include "appearance_mimicking_surfaces.h"
 #include <igl/read_triangle_mesh.h>
 #include <igl/write_triangle_mesh.h>
 #include <igl/parula.h>
