@@ -243,12 +243,3 @@ void deform(
 
   std::cout << "DONE" << std::endl;
 }
-
-void smooth(
-    const Eigen::MatrixXd & V,
-    const Eigen::MatrixXi & F,
-    const Eigen::MatrixXd & G,
-    Eigen::MatrixXd & U)
-{
-  U.resize(G.rows(), G.cols());
-}
