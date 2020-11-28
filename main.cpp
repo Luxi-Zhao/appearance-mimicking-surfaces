@@ -2,6 +2,7 @@
 #include <igl/read_triangle_mesh.h>
 #include <igl/write_triangle_mesh.h>
 #include <igl/parula.h>
+#include <igl/png/readPNG.h>
 #include <igl/opengl/glfw/Viewer.h>
 #include <string>
 #include <iostream>
@@ -58,6 +59,8 @@ int main(int argc, char *argv[])
 [space]  Toggle whether displaying original mesh or deformed mesh
 p        Toggle debug points (red - bounding box, green - view point, blue - fixed vertex)
 )";
+  Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> R,G,B,A;
+  igl::png::readPNG(argv[2],R,G,B,A);
 
   // Colors
   const Eigen::RowVector3d white(1.0,1.0,1.0);
@@ -108,7 +111,7 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
   Eigen::VectorXi mu_ind(V.rows());
   mu_ind.setZero();
 
-  deform(V, F, o, lambda_lo, lambda_hi, ind_fixed, lambda_known, weights, mu_ind, DV);
+//  deform(V, F, o, lambda_lo, lambda_hi, ind_fixed, lambda_known, weights, mu_ind, DV);
 //  igl::write_triangle_mesh("../data/output.obj",DV,F);
 
   bool show_deform = false;
@@ -162,7 +165,8 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
     };
 
   viewer.data().set_mesh(V,F);
-  viewer.data().set_colors(white);
+  viewer.data().set_texture(R,G,B,A);
+  viewer.data().use_matcap = true;
   viewer.core().background_color.setOnes();
   update();
   viewer.data().show_texture = true;
