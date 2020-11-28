@@ -4,15 +4,8 @@
 #include <igl/parula.h>
 #include <igl/opengl/glfw/Viewer.h>
 #include <igl/ambient_occlusion.h>
-#include <igl/unproject_onto_mesh.h>
 #include <string>
 #include <iostream>
-#include <igl/edge_lengths.h>
-#include <igl/find.h>
-#include <igl/cotmatrix.h>
-#include <igl/repdiag.h>
-#include "cotmatrix.h"
-#include "massmatrix.h"
 
 void get_weights(
   const Eigen::MatrixXd & V,
@@ -40,45 +33,35 @@ t        Switch parameterization to Tutte embedding
 l        Switch parameterization to Least squares conformal mapping
 )";
 
-  const Eigen::RowVector3d orange(1.0,0.7,0.2);
-  const Eigen::RowVector3d yellow(1.0,0.9,0.2);
-  const Eigen::RowVector3d blue(0.2,0.3,0.8);
-  const Eigen::RowVector3d green(0.2,0.6,0.3);
   const Eigen::RowVector3d white(1.0,1.0,1.0);
 
   // Find the bounding box
   Eigen::Vector3d m = V.colwise().minCoeff();
   Eigen::Vector3d M = V.colwise().maxCoeff();
 
-  // Predetermined view points based on bounding box
-  // TODO add the other 7 points
-  Eigen::MatrixXd V_vp(1,3);
-  V_vp <<
-       (M(0)+m(0))/2.0, (M(1)+m(1))/2.0, 2.0 * M(2);
+  // Predetermined view point
+  Eigen::RowVector3d o((M(0)+m(0))/2.0, (M(1)+m(1))/2.0, 2.0 * M(2));
 
-  // Lambda bounds according to view point
-  // TODO add the other 7 points
-  Eigen::MatrixXd lambda_bounds(1, 2);
+  int dimen = 2; // z-axis
+  double v_fixed = V(0, dimen); // fix the 0th vertex
+  // vertex range along the z-axis
+  double v_min = m(dimen);
+  double v_max = M(dimen);
 
-  double v_fixed_z = V(0, 2);
-  double v_min_z = V.col(2).array().minCoeff();
-  double v_max_z = V.col(2).array().maxCoeff();
+  double orig_depth = v_max - v_min;
+  double half_depth = orig_depth / 6.0;
+  double mesh_midpoint = (v_max + v_min) / 2.0;
+  double lambda_max = mesh_midpoint - half_depth;
+  double lambda_min = mesh_midpoint + half_depth;
 
-  double orig_depth = v_max_z - v_min_z;
-  double quarter_depth = orig_depth / 6.0;
-  double mesh_midpoint = (v_max_z + v_min_z) / 2.0;
-  double max = mesh_midpoint - quarter_depth;
-  double min = mesh_midpoint + quarter_depth;
-
-  Eigen::RowVector3d o = V_vp.row(0);
   Eigen::MatrixXd V_hat = (V.rowwise() - o).rowwise().normalized();
 
-  double pos_fixed = max + (v_fixed_z - v_min_z) / (v_max_z - v_min_z) * (min - max);
+  double pos_fixed = lambda_max + (v_fixed - v_min) / (v_max - v_min) * (lambda_min - lambda_max);
   double lambda_known = (pos_fixed - o(2)) / V_hat(0, 2);
 
   Eigen::VectorXd lambda_lo, lambda_hi;
-  lambda_lo = ((min - o(2)) / V_hat.col(2).array()).matrix(); // TODO generalize this
-  lambda_hi = ((max - o(2)) / V_hat.col(2).array()).matrix(); // TODO generalize this
+  lambda_lo = ((lambda_min - o(2)) / V_hat.col(2).array()).matrix(); // TODO generalize this
+  lambda_hi = ((lambda_max - o(2)) / V_hat.col(2).array()).matrix(); // TODO generalize this
 
   // TODO clean up here
   std::cout << "lambda known: " << lambda_known << "\n";
@@ -140,7 +123,7 @@ l        Switch parameterization to Least squares conformal mapping
     M(0), m(1), M(2),
     M(0), M(1), M(2),
     m(0), M(1), M(2),
-    V_vp.row(0),
+    o,
     V.row(0);
 
   // Edges of the bounding box
