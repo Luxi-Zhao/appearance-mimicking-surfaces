@@ -99,10 +99,6 @@ l        Switch parameterization to Least squares conformal mapping
           case 'c':
             viewer.data().show_texture ^= 1;
             break;
-          case 't':
-            std::cout << viewer.core().camera_eye << "\n";
-            std::cout << viewer.core().light_position << "\n";
-            break;
           default:
             return false;
         }
