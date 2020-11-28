@@ -47,6 +47,36 @@ double get_bounds(
   return lambda_known;
 }
 
+void get_background(
+  const Eigen::MatrixXd & V,
+  const Eigen::MatrixXi & F,
+  Eigen::MatrixXd & MV,
+  Eigen::MatrixXi & MF)
+{
+  Eigen::Vector3d m = V.colwise().minCoeff();
+  Eigen::Vector3d M = V.colwise().maxCoeff();
+
+  // Corners of background
+  Eigen::MatrixXd V_back(4,3);
+  double half_x = (M(0) - m(0)) / 2.0;
+  double half_y = (M(1) - m(1)) / 2.0;
+  V_back <<
+         m(0) - half_x, m(1) - half_y, m(2),
+    M(0) + half_x, m(1) - half_y, m(2),
+    M(0) + half_x, M(1) + half_y, m(2),
+    m(0) - half_x, M(1) + half_y, m(2);
+  int ind_start = V.rows();
+  Eigen::MatrixXi F_back(2, 3);
+  F_back <<
+         ind_start, ind_start + 1, ind_start + 2,
+    ind_start, ind_start + 2, ind_start + 3;
+
+  MV.resize(V.rows() + 4, V.cols());
+  MF.resize(F.rows() + 2, F.cols());
+  MV << V, V_back;
+  MF << F, F_back;
+}
+
 int main(int argc, char *argv[])
 {
   // Load input meshes
@@ -111,16 +141,34 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
   Eigen::VectorXi mu_ind(V.rows());
   mu_ind.setZero();
 
-//  deform(V, F, o, lambda_lo, lambda_hi, ind_fixed, lambda_known, weights, mu_ind, DV);
+  deform(V, F, o, lambda_lo, lambda_hi, ind_fixed, lambda_known, weights, mu_ind, DV);
 //  igl::write_triangle_mesh("../data/output.obj",DV,F);
 
   bool show_deform = false;
   bool show_points = false;
+  bool show_back = false;
+
+  Eigen::MatrixXd CV;
+  CV = V;
 
   const auto & update = [&]()
   {
-      if(show_points)
-      {
+      viewer.data().clear();
+      Eigen::MatrixXd MV;
+      Eigen::MatrixXi MF;
+      if(show_deform && show_back) {
+        get_background(DV, F, MV, MF);
+        viewer.data().set_mesh(MV, MF);
+      } else if(show_deform){
+        viewer.data().set_mesh(DV, F);
+      } else if(show_back) {
+        get_background(V, F, MV, MF);
+        viewer.data().set_mesh(MV, MF);
+      } else {
+        viewer.data().set_mesh(V, F);
+      }
+
+      if(show_points) {
         // Plot the corners of the bounding box as points
         viewer.data().add_points(V_box, red);
         viewer.data().add_points(o, green);
@@ -129,22 +177,14 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
         for (unsigned i = 0; i < E_box.rows(); ++i)
           viewer.data().add_edges
             (
-              V_box.row(E_box(i,0)),
-              V_box.row(E_box(i,1)),
+              V_box.row(E_box(i, 0)),
+              V_box.row(E_box(i, 1)),
               red
             );
-      } else {
-        viewer.data().clear_points();
-        viewer.data().clear_edges();
       }
 
-      if(show_deform)
-      {
-        viewer.data().set_vertices(DV);
-      } else
-      {
-        viewer.data().set_vertices(V);
-      }
+      viewer.data().set_texture(R,G,B,A);
+      viewer.data().use_matcap = true;
   };
   viewer.callback_key_pressed =
     [&](igl::opengl::glfw::Viewer &, unsigned int key, int)
@@ -156,6 +196,9 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
             break;
           case 'p':
             show_points ^= 1;
+            break;
+          case 'b':
+            show_back ^= 1;
             break;
           default:
             return false;
