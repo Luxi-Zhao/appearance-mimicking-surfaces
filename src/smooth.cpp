@@ -144,61 +144,41 @@ void deform(
   const Eigen::VectorXi & mu_ind,
   Eigen::MatrixXd & DV)
 {
-  double test = (lambda_hi.array()-lambda_lo.array()).minCoeff();
-  if(test <= 0) {
-    std::cout << "ASSERT FAILED!!!!!!!!" << std::endl;
-  } else {
-    std::cout << "assert passed" << std::endl;
-  }
   assert((lambda_hi.array()-lambda_lo.array()).minCoeff() > 0 && "ux(i) must be > lx(i)");
 
   Eigen::SparseMatrix<double> M;
   igl::massmatrix(V, F, igl::MASSMATRIX_TYPE_VORONOI, M);
 
-  std::cout << "getting D_A" << std::endl;
   // D_A
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_A;
   voronoi_area(M, D_A);
-
-  std::cout << "getting D_w" << std::endl;
 
   // D_w
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_w;
   get_weights(weights, D_w);
   Eigen::SparseMatrix<double> D_W = D_w.toDenseMatrix().sparseView();
 
-  std::cout << "getting S" << std::endl;
   // S
   Eigen::SparseMatrix<double> S;
   selector(V, S);
-
-  std::cout << "getting lambda0" << std::endl;
 
   // lambda0
   Eigen::VectorXd lambda0;
   get_lambda(V, o, lambda0);
 
-  std::cout << "getting L_tilda0" << std::endl;
-
   // L_tilda0
   Eigen::SparseMatrix<double> L_tilda0;
   laplacian(V, F, M, L_tilda0);
-
-  std::cout << "getting D_v_hat" << std::endl;
 
   // D_v_hat
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_v_hat;
   Eigen::MatrixXd V_hat = (V.rowwise() - o).rowwise().normalized();
   sparse_v(V_hat, D_v_hat);
 
-  std::cout << "getting L_theta" << std::endl;
-
   // L_theta
   Eigen::VectorXd S_lambda0 = S * lambda0;
   Eigen::VectorXd L_theta;
   get_L_theta(S_lambda0, L_tilda0, D_v_hat, L_theta);
-
-  std::cout << "getting D_L_theta" << std::endl;
 
   // D_L_theta
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_L_theta_diag;
@@ -206,13 +186,10 @@ void deform(
   Eigen::SparseMatrix<double> D_L_theta;
   D_L_theta = D_L_theta_diag;
 
-  std::cout << "getting Q" << std::endl;
-
   Eigen::SparseMatrix<double> Q;
   Q = D_A * D_W * (L_tilda0 * D_v_hat - D_L_theta) * S;
 
   std::cout << "getting F" << std::endl;
-
   // F
   int n_mu = mu_ind.maxCoeff() + 1;
   double alpha_sqrt = sqrt(pow(10.0, -7.0));
@@ -221,7 +198,6 @@ void deform(
   diag_concat(Q, I, J);
   K = J.transpose() * J;
 
-  std::cout << "preparing constraints" << std::endl;
   long n = V.rows() + n_mu;
   assert(K.rows() == n);
   assert(K.cols() == n);
@@ -252,9 +228,6 @@ void deform(
   std::cout << "solving for x's" << std::endl;
   igl::active_set(K, B, b, Y, Aeq, Beq, Aieq, Bieq, lx, ux, as, x);
 
-  std::cout << "got x's" << std::endl;
-  std::cout << x << std::endl;
-
   // Extract lambda and mu from x
   Eigen::VectorXd lambda, mu, mu_arr(V.rows());
   lambda = x.head(V.rows());
@@ -264,7 +237,6 @@ void deform(
   }
 
   // Use lambdas to transform vertices
-  std::cout << "getting DV" << std::endl;
   DV.resize(V.rows(), V.cols());
   DV = (V_hat.array().colwise() * (lambda.array() * mu_arr.array())).matrix();
   DV = DV.rowwise() + o;
