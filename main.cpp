@@ -14,11 +14,11 @@
 double get_bounds(
   const Eigen::RowVector3d & o,
   const Eigen::MatrixXd & V,
+  int ind_fixed,
   Eigen::VectorXd & lambda_lo,
   Eigen::VectorXd & lambda_hi)
 {
   int dimen = 2; // z-axis
-  int ind_fixed = 0; // fix the 0th vertex
 
   Eigen::MatrixXd V_hat = (V.rowwise() - o).rowwise().normalized();
   double v_fixed = V(ind_fixed, dimen);
@@ -100,11 +100,16 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
     2, 6,
     7 ,3;
 
-  Eigen::VectorXd lambda_lo, lambda_hi;
-  double lambda_known = get_bounds(o, V, lambda_lo, lambda_hi);
+  int ind_fixed = 0;
+  Eigen::VectorXd lambda_lo, lambda_hi, weights(V.rows());
+  double lambda_known = get_bounds(o, V, ind_fixed, lambda_lo, lambda_hi);
+  weights.setOnes();
 
-  deform(V, F, o, lambda_lo, lambda_hi, lambda_known, DV);
-  igl::write_triangle_mesh("../data/output.obj",DV,F);
+  Eigen::VectorXi mu_ind(V.rows());
+  mu_ind.setZero();
+
+  deform(V, F, o, lambda_lo, lambda_hi, ind_fixed, lambda_known, weights, mu_ind, DV);
+//  igl::write_triangle_mesh("../data/output.obj",DV,F);
 
   bool show_deform = false;
   bool show_points = false;
