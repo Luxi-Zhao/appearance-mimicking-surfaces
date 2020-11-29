@@ -141,7 +141,7 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
   Eigen::VectorXi mu_ind(V.rows());
   mu_ind.setZero();
 
-  deform(V, F, o, lambda_lo, lambda_hi, ind_fixed, lambda_known, weights, mu_ind, DV);
+//  deform(V, F, o, lambda_lo, lambda_hi, ind_fixed, lambda_known, weights, mu_ind, DV);
 //  igl::write_triangle_mesh("../data/output.obj",DV,F);
 
   bool show_deform = false;
@@ -185,6 +185,7 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
 
       viewer.data().set_texture(R,G,B,A);
       viewer.data().use_matcap = true;
+      viewer.data().face_based = true;
   };
   viewer.callback_key_pressed =
     [&](igl::opengl::glfw::Viewer &, unsigned int key, int)
@@ -214,6 +215,7 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
   update();
   viewer.data().show_texture = true;
   viewer.data().show_lines = false;
+  viewer.data().face_based = true;
   viewer.launch();
 
   return EXIT_SUCCESS;
