@@ -40,12 +40,12 @@ void get_weights(
   }
 }
 
-// L_tilda
+// L_tilde
 void laplacian(
   const Eigen::MatrixXd & V,
   const Eigen::MatrixXi & F,
   const Eigen::SparseMatrix<double> & M,
-  Eigen::SparseMatrix<double> & L_tilda)
+  Eigen::SparseMatrix<double> & L_tilde)
 {
   Eigen::SparseMatrix<double> cot, M_inv, L;
   igl::cotmatrix(V, F, cot);
@@ -63,8 +63,8 @@ void laplacian(
       }
     }
   }
-  L_tilda.resize(3 * V.rows(), 3 * V.rows());
-  L_tilda.setFromTriplets(tripletList.begin(), tripletList.end());
+  L_tilde.resize(3 * V.rows(), 3 * V.rows());
+  L_tilde.setFromTriplets(tripletList.begin(), tripletList.end());
 }
 
 // D_v_hat
@@ -106,7 +106,7 @@ void get_lambda(
 
 void get_L_theta(
   const Eigen::VectorXd & S_lambda0,
-  const Eigen::SparseMatrix<double> & L_tilda0,
+  const Eigen::SparseMatrix<double> & L_tilde0,
   const Eigen::DiagonalMatrix<double, Eigen::Dynamic> & D_v_hat,
   Eigen::VectorXd & L_theta)
 {
@@ -114,7 +114,7 @@ void get_L_theta(
   D_S_lambda0.diagonal() = S_lambda0;
 
   L_theta.setZero();
-  L_theta = D_S_lambda0.inverse() * L_tilda0 * D_v_hat * S_lambda0;
+  L_theta = D_S_lambda0.inverse() * L_tilde0 * D_v_hat * S_lambda0;
 }
 
 void diag_concat(
@@ -166,9 +166,9 @@ void deform(
   Eigen::VectorXd lambda0;
   get_lambda(V, o, lambda0);
 
-  // L_tilda0
-  Eigen::SparseMatrix<double> L_tilda0;
-  laplacian(V, F, M, L_tilda0);
+  // L_tilde0
+  Eigen::SparseMatrix<double> L_tilde0;
+  laplacian(V, F, M, L_tilde0);
 
   // D_v_hat
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_v_hat;
@@ -178,7 +178,7 @@ void deform(
   // L_theta
   Eigen::VectorXd S_lambda0 = S * lambda0;
   Eigen::VectorXd L_theta;
-  get_L_theta(S_lambda0, L_tilda0, D_v_hat, L_theta);
+  get_L_theta(S_lambda0, L_tilde0, D_v_hat, L_theta);
 
   // D_L_theta
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_L_theta_diag;
@@ -187,7 +187,7 @@ void deform(
   D_L_theta = D_L_theta_diag;
 
   Eigen::SparseMatrix<double> Q;
-  Q = D_A * D_W * (L_tilda0 * D_v_hat - D_L_theta) * S;
+  Q = D_A * D_W * (L_tilde0 * D_v_hat - D_L_theta) * S;
 
   std::cout << "getting F" << std::endl;
   // F
