@@ -13,7 +13,7 @@ See
 
 ## Execution
 
-Once built, you can execute the assignment from inside the `build/` by running
+Once built, you can execute the demo from inside the `build/` by running
 
     ./ams [path to mesh.obj]
 
