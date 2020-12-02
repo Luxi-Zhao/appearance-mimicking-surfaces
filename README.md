@@ -15,7 +15,7 @@ See
 
 Once built, you can execute the assignment from inside the `build/` by running
 
-    ./ams [path to mesh.obj] [path to data.obj]
+    ./ams [path to mesh.obj]
 
 
 ## Background
