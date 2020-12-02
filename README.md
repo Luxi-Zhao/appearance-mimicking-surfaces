@@ -1,5 +1,5 @@
 # Appearance Mimicking Surfaces
-This repo is an libigl style implementation of the [Appearance Mimicking Sufaces](https://cims.nyu.edu/gcl/papers/mimicking-2014.pdf) paper.
+This repo is an libigl style implementation of the [Appearance Mimicking Surfaces](https://cims.nyu.edu/gcl/papers/mimicking-2014.pdf) paper.
 
 > **To get started:** Fork this repository then issue
 > 
