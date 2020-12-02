@@ -6,7 +6,7 @@ Inspired by bas-reliefs, appearance-mimicking surfaces are thin surfaces, or 2.5
 
 Let $S^{o}$ be the original surface, and $S$ be the deformed surface when observed from viewpoint $\bold{o}$. Each point $\bold{p}'$ of the deformed surface is constrained to stay on the ray emanating from the viewpoint in the direction of $\bold{p}$ (line $\bold{op}$).
 
-<img src="/Users/luxizhao/Library/Application Support/typora-user-images/image-20201201115724580.png" alt="image-20201201115724580" style="zoom:20%;" />
+<img src="normals.png" alt="image-20201201115724580" style="zoom:20%;" />
 
 The perceived difference $d(S, S^{o}, \bold{o})$ between $S^{o}$ and $S$ is measured by the sum of the L2 norm of their normals at each point:  
 $$
@@ -83,65 +83,16 @@ $$
 
 \end{align*}
 $$
-  
 
+## Demo
 
+| Original Mesh                                                | Deformed Mesh                                                | Original Mesh                                                | Deformed Mesh                                                | Original Mesh                                                | Deformed Mesh                                                |
+| ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| <img src="orig_bunny.png" alt="original bunny" style="zoom:20%;" /> | <img src="deform_bunny.png" alt="deformed bunny" style="zoom:20%;" /> | <img src="orig_knight.png" alt="original knight" style="zoom:20%;" /> | <img src="deform_knight.png" alt="deformed knight" style="zoom:20%;" /> | <img src="orig_dragon.png" alt="original dragon" style="zoom:20%;" /> | <img src="d_dragon.png" alt="deformed dragon" style="zoom:20%;" /> |
 
-#### Getting $\bold{D}_\sqrt{A^o}$  
+​										The example `main.cpp` for `appearance_mimicking_surfaces` deforms a mesh along the z-axis. 
 
-* Dimension: 3n x 3n
-
-First, we construct a mass matrix $\bold{M}$:
-
-```c++
-Eigen::SparseMatrix<double> M;
-igl::massmatrix(V, F, igl::MASSMATRIX_TYPE_VORONOI, M);
-```
-
-Here, $\bold{M}$ is a diagonal matrix, in which the diagonal entry $M_{ii}$ is the Voronoi area around $\bold{v}_i$ in the mesh [^2]. We then take the diagonal entry for each vertex, take the square root, and repeat it 3 times (1 for each dimension).  The resulting matrix $\bold{D}_\sqrt{A^o}$ should look like this:
-$$
-\begin{bmatrix}
-\sqrt{M_{00}} & 0 & \dots &  &  &	 &	& 0\\
-0 						& \sqrt{M_{00}} &  &  &  &  & &\vdots \\
- 						& 							& \sqrt{M_{00}} \\
- 						& 							&  				& \sqrt{M_{11}} \\
- 						& 							&  				&  					& \sqrt{M_{11}} \\
- 						& 							&  				&  					&  						& \sqrt{M_{11}} \\
-\vdots 				& 							&  				&  					&  						&  & \ddots \\
-0 						& 0							&  \dots	&  					&  						& 0 & \dots & \sqrt{M_{n-1,n-1}}
-\end{bmatrix}
-$$
-
-
-#### Getting $\bold{D}_w$
-
-* Dimension: 3n x 3n
-
-Similar to $\bold{D}_\sqrt{A^o}$, we take the weight vector $w$ of size n x 1 and repeat it along the diagonal:
-$$
-\begin{bmatrix}
-w_0 & 0 & \dots &  &  &	 &	& 0\\
-0 						& w_0 &  &  &  &  & &\vdots \\
- 						& 							& w_0 \\
- 						& 							&  				& w_1 \\
- 						& 							&  				&  					& w_1 \\
- 						& 							&  				&  					&  						& w_1 \\
-\vdots 				& 							&  				&  					&  						&  & \ddots \\
-0 						& 0							&  \dots	&  					&  						& 0 & \dots & w_{n-1}
-\end{bmatrix}
-$$
-
-#### Getting $\bold{\tilde{L}}^o$
-
-* Dimension: 3n x 3n
-
-$\bold{\tilde{L}}^o$ is the Kronecker product between the cotangent matrix and 3 x 3 identity matrix:
-$$
-\bold{\tilde{L}}^o = \bold{L}^o \otimes \bold{I}_3
-$$
-
-
-# References
+## References
 
 [^1]: Christian Schuller, Daniele Panozzo, Olga Sorkine-Hornung, [*Appearance-Mimicking Surfaces*](https://cims.nyu.edu/gcl/papers/mimicking-2014.pdf), 2014
 
