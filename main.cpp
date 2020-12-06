@@ -6,6 +6,95 @@
 #include <string>
 #include <iostream>
 
+double point_plane_distance(
+  const Eigen::RowVector3d & x,
+  const Eigen::RowVector3d & a,
+  const Eigen::RowVector3d & b,
+  const Eigen::RowVector3d & c,
+  Eigen::RowVector3d & p)
+{
+  // Project point x onto the plane pl containing triangle abc
+  Eigen::RowVector3d n_p;
+  n_p = (b-a).cross(c-a);
+  double d_xpl = (x-a).dot(n_p) / n_p.norm();
+  p = x - n_p.normalized() * d_xpl;
+  double d = (x-p).norm();
+  return d;
+}
+
+double mesh_depth(
+  const Eigen::MatrixXd & V,
+  int dimen)
+{
+  // Vertex range along the z-axis
+  double v_min = V.col(dimen).minCoeff();
+  double v_max = V.col(dimen).maxCoeff();
+  double d = v_max - v_min;
+  return d;
+}
+
+void get_viewpoint(
+  const Eigen::Vector3d & m,
+  const Eigen::Vector3d & M,
+  Eigen::RowVector3d & o)
+{
+  Eigen::RowVector3d lower_left, upper_right, diagonal, o_low;
+  lower_left = Eigen::RowVector3d(m(0), m(1), M(2));
+  upper_right = Eigen::RowVector3d(M(0), m(1), m(2));
+  diagonal = lower_left - upper_right;
+  o_low = upper_right + diagonal * 2.0;
+  o << o_low(0), (M(1)+m(1))/2.0, o_low(2);
+}
+
+void get_plane(
+  const Eigen::Vector3d & m,
+  const Eigen::Vector3d & M,
+  Eigen::Matrix3d & pl)
+{
+  Eigen::RowVector3d upper_left_lo, lower_right_lo, lower_right_hi;
+  upper_left_lo = m;
+  lower_right_lo = Eigen::RowVector3d(M(0), m(1), M(2));
+  lower_right_hi = Eigen::RowVector3d(M(0), M(1), M(2));
+  pl.resize(3, 3);
+  pl << lower_right_hi, upper_left_lo, lower_right_lo;
+}
+
+double get_bounds2(
+  const Eigen::RowVector3d & o,
+  const Eigen::MatrixXd & V,
+  const Eigen::Matrix3d & pl,
+  int ind_fixed,
+  Eigen::VectorXd & lambda_lo,
+  Eigen::VectorXd & lambda_hi)
+{
+  Eigen::MatrixXd V_hat = (V.rowwise() - o).rowwise().normalized();
+  double orig_depth = mesh_depth(V, 2);
+  double scale = 1.0/3.0;
+  double half_depth = scale * orig_depth / 2.0;
+
+  Eigen::RowVector3d a, b, c, p;
+  a = pl.row(0);
+  b = pl.row(1);
+  c = pl.row(2);
+  double mid_dist = point_plane_distance(o, a, b, c, p);
+  double lambda_max = mid_dist + half_depth;
+  double lambda_min = mid_dist - half_depth;
+
+  Eigen::RowVector3d op_hat = (p - o).normalized();
+  Eigen::VectorXd denom(V_hat.rows());
+  for(int i = 0; i < V_hat.rows(); i++) {
+    denom(i) = V_hat.row(i).dot(op_hat);
+  }
+
+  lambda_lo = lambda_min / denom.array();
+  lambda_hi = lambda_max / denom.array();
+
+  // TODO properly calculate this
+  double lambda_known = (lambda_min + lambda_max) / 2.0;
+  return lambda_known;
+}
+
+
 /**
  * Compute lambda constraints according to view point position.
  * This method is not generalized for all meshes. May need to
@@ -60,6 +149,7 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
 )";
 
   // Colors
+  const Eigen::RowVector3d black(0.0,0.0,0.0);
   const Eigen::RowVector3d white(1.0,1.0,1.0);
   const Eigen::RowVector3d red(1.0,0.0,0.0);
   const Eigen::RowVector3d green(0.0,1.0,0.0);
@@ -69,8 +159,9 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
   Eigen::Vector3d m = V.colwise().minCoeff();
   Eigen::Vector3d M = V.colwise().maxCoeff();
 
-  // Position view point along the z-axis
-  Eigen::RowVector3d o((M(0)+m(0))/2.0, (M(1)+m(1))/2.0, 2.0 * M(2));
+  Eigen::MatrixXd V_corners(2,3);
+  V_corners << m(0), m(1), m(2),
+    M(0), M(1), M(2);
 
   // Corners of the bounding box
   Eigen::MatrixXd V_box(8,3);
@@ -100,9 +191,16 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
     2, 6,
     7 ,3;
 
+  // Position view point along the z-axis
+//  Eigen::RowVector3d o((M(0)+m(0))/2.0, (M(1)+m(1))/2.0, 2.0 * M(2));
+  Eigen::RowVector3d o;
+  get_viewpoint(m, M, o);
+  Eigen::Matrix3d pl;
+  get_plane(m, M, pl);
+
   int ind_fixed = 0;
   Eigen::VectorXd lambda_lo, lambda_hi, weights(V.rows());
-  double lambda_known = get_bounds(o, V, ind_fixed, lambda_lo, lambda_hi);
+  double lambda_known = get_bounds2(o, V, pl, ind_fixed, lambda_lo, lambda_hi);
   weights.setOnes();
 
   Eigen::VectorXi mu_ind(V.rows());
@@ -119,9 +217,10 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
       if(show_points)
       {
         // Plot the corners of the bounding box as points
-        viewer.data().add_points(V_box, red);
+//        viewer.data().add_points(V_box, red);
         viewer.data().add_points(o, green);
         viewer.data().add_points(V.row(0), blue);
+        viewer.data().add_points(V_corners, black);
         // Plot the edges of the bounding box
         for (unsigned i = 0; i < E_box.rows(); ++i)
           viewer.data().add_edges
