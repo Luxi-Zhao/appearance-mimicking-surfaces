@@ -7,6 +7,7 @@ option(LIBIGL_USE_STATIC_LIBRARY     "Use libigl as static library" OFF)
 option(LIBIGL_WITH_OPENGL            "Use OpenGL"         ON)
 option(LIBIGL_WITH_OPENGL_GLFW       "Use GLFW"           ON)
 option(LIBIGL_WITH_MATLAB            "Use Matlab"         ON)
+option(LIBIGL_WITH_PNG               "Use PNG"            ON)
 
 find_package(LIBIGL REQUIRED)
 find_package(Matlab REQUIRED)
@@ -25,4 +26,4 @@ add_library(core ${SRCFILES})
 target_link_libraries(core igl::core igl::opengl igl::opengl_glfw )
 
 add_executable(ams "main.cpp")
-target_link_libraries(ams core igl::core igl::opengl igl::opengl_glfw igl::matlab)
+target_link_libraries(ams core igl::core igl::opengl igl::opengl_glfw igl::matlab igl::png)

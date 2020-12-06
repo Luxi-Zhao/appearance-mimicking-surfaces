@@ -1,10 +1,15 @@
 #include "appearance_mimicking_surfaces.h"
 #include <igl/read_triangle_mesh.h>
 #include <igl/parula.h>
+#include <igl/png/readPNG.h>
 #include <igl/opengl/glfw/Viewer.h>
 #include <string>
 #include <iostream>
 
+/**
+ * Calculates distance between point x
+ * and plane defined by triangle abc
+ */
 double point_plane_distance(
   const Eigen::RowVector3d & x,
   const Eigen::RowVector3d & a,
@@ -21,6 +26,14 @@ double point_plane_distance(
   return d;
 }
 
+/**
+ * Returns thickness of mesh along either x, y, or z
+ * axis. Used for calculating thickness of deformed
+ * mesh.
+ * @param V
+ * @param dimen x -> 0, y -> 1, z -> 2
+ * @return
+ */
 double mesh_depth(
   const Eigen::MatrixXd & V,
   int dimen)
@@ -32,6 +45,13 @@ double mesh_depth(
   return d;
 }
 
+/**
+ * 3 different directions for deforming the mesh.
+ * Best used with meshes facing the x-y plane
+ * (thickness is defined along the z-axis)
+ */
+
+// viewpoint is at the middle of the mesh
 void get_viewpoint_lower_mid(
   const Eigen::Vector3d & m,
   const Eigen::Vector3d & M,
@@ -40,6 +60,7 @@ void get_viewpoint_lower_mid(
   o = Eigen::RowVector3d((M(0)+m(0))/2.0, (M(1)+m(1))/2.0, 3.0 * M(2));
 }
 
+// viewpoint is to the left of the mesh
 void get_viewpoint_lower_left(
   const Eigen::Vector3d & m,
   const Eigen::Vector3d & M,
@@ -53,6 +74,7 @@ void get_viewpoint_lower_left(
   o << o_low(0), (M(1)+m(1))/2.0, o_low(2);
 }
 
+// viewpoint is to the right of the mesh
 void get_viewpoint_lower_right(
   const Eigen::Vector3d & m,
   const Eigen::Vector3d & M,
@@ -66,6 +88,7 @@ void get_viewpoint_lower_right(
   o << o_low(0), (M(1)+m(1))/2.0, o_low(2);
 }
 
+// plane corresponding to the middle viewpoint
 void get_plane_mid(
   const Eigen::Vector3d & m,
   const Eigen::Vector3d & M,
@@ -79,6 +102,8 @@ void get_plane_mid(
   pl << left_hi, left_lo, right_lo;
 }
 
+// plane corresponding to the left viewpoint.
+// defined along a diagonal of the bounding box
 void get_plane_left(
   const Eigen::Vector3d & m,
   const Eigen::Vector3d & M,
@@ -92,6 +117,8 @@ void get_plane_left(
   pl << lower_right_hi, upper_left_lo, lower_right_lo;
 }
 
+// plane corresponding to the right viewpoint.
+// defined along a diagonal of the bounding box
 void get_plane_right(
   const Eigen::Vector3d & m,
   const Eigen::Vector3d & M,
@@ -151,6 +178,8 @@ int main(int argc, char *argv[])
 [space]  Toggle whether displaying original mesh or deformed mesh
 p        Toggle debug points (red - bounding box, green - view point, blue - fixed vertex)
 )";
+  Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> R,G,B,A;
+  igl::png::readPNG(argv[2],R,G,B,A);
 
   // Colors
   const Eigen::RowVector3d black(0.0,0.0,0.0);
@@ -294,11 +323,13 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
     };
 
   viewer.data().set_mesh(V,F);
-  viewer.data().set_colors(white);
+  viewer.data().set_texture(R,G,B,A);
+  viewer.data().use_matcap = true;
   viewer.core().background_color.setOnes();
   update();
   viewer.data().show_texture = true;
   viewer.data().show_lines = false;
+  viewer.data().face_based = true;
   viewer.launch();
 
   return EXIT_SUCCESS;
