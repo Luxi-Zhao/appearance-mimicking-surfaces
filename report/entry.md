@@ -68,14 +68,12 @@ Let $n = |\bold{V}^o|$,
 * $\bold{\tilde{L}}^o$, also 3n x 3n, is the Kronecker product between the cotangent matrix and 3 x 3 identity matrix: $\bold{\tilde{L}}^o = \bold{L}^o \otimes \bold{I}_3$
 * $\bold{S}$ is a 3n x n selector matrix that associates each $\lambda_i$ with the x, y, z coordinates of $\bold{v}_i$: $\bold{I}_n \otimes [1,1,1]^T$
 
-Next, we introduce a vector $\bold{\mu}$ that allows the depth range constraints to be discontinuous. Each element $\mu_g$ is a scaling factor for an independent group of vertices such that $\mu_g \lambda^{min}_i \leq \lambda_i \leq \mu_g \lambda^{max}_i$ holds for all vertices in group $g$. $|\bold{\mu}| =$ number of groups. $\bold{\mu}$ should also be minimized to minimize the thickness of each disconnected component.
-
-Aside from depth constraints, we also need to fix the value of $\lambda_k$ for one vertex $\bold{v}_k$ to obtain a unique solution.
+Aside from depth constraints, we also need to fix the value of $\lambda_k$ for one vertex $\bold{v}_k$ to obtain a unique solution. $\lambda_k$ is a pre-calculated value $b$ passed into the algorithm.
 
 We now have quadratic programming problem that can be solved using the libigl active set solver:
 $$
 \begin{align*}
-& \min_{\bold{\lambda}, \bold{\mu}} \Vert \bold{Q} \bold{\lambda} \Vert^2 + \alpha \Vert \bold{\mu} \Vert^2 \\
+& \min_{\bold{\lambda}, \bold{\mu}} \Vert \bold{Q} \bold{\lambda} \Vert^2\\
 \\
 & \text{subject to } \\ 
 & \bold{\lambda}^{min} \leq \bold{\lambda} \leq \bold{\lambda}^{max} \\
@@ -84,13 +82,28 @@ $$
 \end{align*}
 $$
 
+```c++
+igl::active_set_params as;
+Eigen::VectorXd lambda; // n x 1
+
+// Q - D_A * D_w * (L_tilde0 * D_v_hat - D_L_theta) * S, 3n x n
+// B - linear coefficients, set to 0
+// b - index of lambda to be fixed
+// Y - value of the fixed lambda
+// Aeq, Beq, Aieq, Bieq - empty matrices
+// lx, ux - upper and lower lambda bounds
+igl::active_set(Q.transpose() * Q, B, b, Y, Aeq, Beq, Aieq, Bieq, lx, ux, as, lambda);
+```
+
+For further implementation details, see `main.cpp`, which creates appearance-mimicking surfaces of the input mesh from 3 pre-defined viewpoints.  
+
 ## Demo
 
 | Original Mesh                                                | Deformed Mesh                                                | Original Mesh                                                | Deformed Mesh                                                | Original Mesh                                                | Deformed Mesh                                                |
 | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
 | <img src="orig_bunny.png" alt="original bunny" style="zoom:20%;" /> | <img src="deform_bunny.png" alt="deformed bunny" style="zoom:20%;" /> | <img src="orig_knight.png" alt="original knight" style="zoom:20%;" /> | <img src="deform_knight.png" alt="deformed knight" style="zoom:20%;" /> | <img src="orig_dragon.png" alt="original dragon" style="zoom:20%;" /> | <img src="d_dragon.png" alt="deformed dragon" style="zoom:20%;" /> |
 
-​										The example `main.cpp` for `appearance_mimicking_surfaces` deforms a mesh along the z-axis. 
+​																	The example `main.cpp` deforms a mesh along the z-axis. 
 
 ## References
 
