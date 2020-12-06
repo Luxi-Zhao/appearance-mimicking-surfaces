@@ -7,8 +7,13 @@
 #include <igl/active_set.h>
 #include <cmath>
 #include <iostream>
+#include <igl/matlab/matlabinterface.h>
 
 typedef Eigen::Triplet<double> T;
+
+// If true, computationally intensive operations will be
+// sent to a newly launched MATLAB engine
+bool USE_MATLAB = true;
 
 // D_A
 void voronoi_area(
@@ -147,47 +152,75 @@ void appearance_mimicking_surfaces(
   assert((lambda_hi.array()-lambda_lo.array()).minCoeff() > 0 && "ux(i) must be > lx(i)");
 
   Eigen::SparseMatrix<double> M;
+  std::chrono::steady_clock::time_point begin, end;
+  begin = std::chrono::steady_clock::now();
   igl::massmatrix(V, F, igl::MASSMATRIX_TYPE_VORONOI, M);
 
   // D_A
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_A;
   voronoi_area(M, D_A);
+  end = std::chrono::steady_clock::now();
+  std::cout << "Time difference for getting voronoi area = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[s]" << std::endl;
 
   // D_w
+  begin = std::chrono::steady_clock::now();
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_w;
   get_weights(weights, D_w);
   Eigen::SparseMatrix<double> D_W = D_w.toDenseMatrix().sparseView();
+  end = std::chrono::steady_clock::now();
+  std::cout << "Time difference for getting weights = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[s]" << std::endl;
 
   // S
+  begin = std::chrono::steady_clock::now();
   Eigen::SparseMatrix<double> S;
   selector(V, S);
+  end = std::chrono::steady_clock::now();
+  std::cout << "Time difference for getting selector = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[s]" << std::endl;
 
   // lambda0
+  begin = std::chrono::steady_clock::now();
   Eigen::VectorXd lambda0;
   get_lambda(V, o, lambda0);
+  end = std::chrono::steady_clock::now();
+  std::cout << "Time difference for getting lambda0 = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[s]" << std::endl;
 
   // L_tilde0
+  begin = std::chrono::steady_clock::now();
   Eigen::SparseMatrix<double> L_tilde0;
   laplacian(V, F, M, L_tilde0);
+  end = std::chrono::steady_clock::now();
+  std::cout << "Time difference for getting Ltilde0 = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[s]" << std::endl;
 
   // D_v_hat
+  begin = std::chrono::steady_clock::now();
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_v_hat;
   Eigen::MatrixXd V_hat = (V.rowwise() - o).rowwise().normalized();
   sparse_v(V_hat, D_v_hat);
+  end = std::chrono::steady_clock::now();
+  std::cout << "Time difference for getting Dvhat = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[s]" << std::endl;
 
   // L_theta
+  begin = std::chrono::steady_clock::now();
   Eigen::VectorXd S_lambda0 = S * lambda0;
   Eigen::VectorXd L_theta;
   get_L_theta(S_lambda0, L_tilde0, D_v_hat, L_theta);
+  end = std::chrono::steady_clock::now();
+  std::cout << "Time difference for getting L theta = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[s]" << std::endl;
 
   // D_L_theta
+  begin = std::chrono::steady_clock::now();
   Eigen::DiagonalMatrix<double, Eigen::Dynamic> D_L_theta_diag;
   D_L_theta_diag.diagonal() = L_theta;
   Eigen::SparseMatrix<double> D_L_theta;
   D_L_theta = D_L_theta_diag;
+  end = std::chrono::steady_clock::now();
+  std::cout << "Time difference for getting D L theta = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[s]" << std::endl;
 
+  begin = std::chrono::steady_clock::now();
   Eigen::SparseMatrix<double> Q;
   Q = D_A * D_W * (L_tilde0 * D_v_hat - D_L_theta) * S;
+  end = std::chrono::steady_clock::now();
+  std::cout << "Time difference for getting q = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[s]" << std::endl;
 
   std::cout << "getting F" << std::endl;
   // F
@@ -196,7 +229,29 @@ void appearance_mimicking_surfaces(
   Eigen::SparseMatrix<double> I = alpha_sqrt * Eigen::MatrixXd::Identity(n_mu, n_mu).sparseView();
   Eigen::SparseMatrix<double> J, K;
   diag_concat(Q, I, J);
-  K = J.transpose() * J;
+
+  begin = std::chrono::steady_clock::now();
+  if(USE_MATLAB) {
+    Eigen::MatrixXd Jd, Kd;
+    Jd = J;
+
+    // Matlab instance
+    Engine* engine;
+
+    // Launch MATLAB
+    igl::matlab::mlinit(&engine);
+
+    // Send J matrix to MATLAB
+    igl::matlab::mlsetmatrix(&engine,"J", Jd);
+
+    igl::matlab::mleval(&engine,"K = transpose(J) * J");
+    igl::matlab::mlgetmatrix(&engine, "K", Kd);
+    K = Kd.sparseView();
+  } else {
+    K = J.transpose() * J;
+  }
+  end = std::chrono::steady_clock::now();
+  std::cout << "Time difference getting K = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[s]" << std::endl;
 
   long n = V.rows() + n_mu;
   assert(K.rows() == n);
@@ -226,7 +281,11 @@ void appearance_mimicking_surfaces(
   Eigen::VectorXd x;
 
   std::cout << "solving for x's" << std::endl;
+  begin = std::chrono::steady_clock::now();
   igl::active_set(K, B, b, Y, Aeq, Beq, Aieq, Bieq, lx, ux, as, x);
+  end = std::chrono::steady_clock::now();
+  std::cout << "Time difference getting x = " << std::chrono::duration_cast<std::chrono::seconds>(end - begin).count() << "[s]" << std::endl;
+
 
   // Extract lambda and mu from x
   Eigen::VectorXd lambda, mu, mu_arr(V.rows());
