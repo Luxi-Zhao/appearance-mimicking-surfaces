@@ -13,7 +13,6 @@ find_package(Matlab REQUIRED)
 
 # Add your project files
 include_directories("include/")
-#include_directories("/Applications/MATLAB_R2019b.app/extern/include")
 include_directories("${Matlab_ROOT_DIR}/extern/include")
 
 if(USE_SOLUTION)
