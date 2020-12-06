@@ -1,6 +1,5 @@
 #include "appearance_mimicking_surfaces.h"
 #include <igl/read_triangle_mesh.h>
-#include <igl/write_triangle_mesh.h>
 #include <igl/parula.h>
 #include <igl/opengl/glfw/Viewer.h>
 #include <string>
@@ -67,14 +66,6 @@ void get_viewpoint_lower_right(
   o << o_low(0), (M(1)+m(1))/2.0, o_low(2);
 }
 
-void get_viewpoint(
-  const Eigen::Vector3d & m,
-  const Eigen::Vector3d & M,
-  Eigen::RowVector3d & o)
-{
-  get_viewpoint_lower_mid(m, M, o);
-}
-
 void get_plane_mid(
   const Eigen::Vector3d & m,
   const Eigen::Vector3d & M,
@@ -112,14 +103,6 @@ void get_plane_right(
   lower_left_hi = Eigen::RowVector3d(m(0), M(1), M(2));
   pl.resize(3, 3);
   pl << lower_left_hi, lower_left_lo, upper_right_lo;
-}
-
-void get_plane(
-  const Eigen::Vector3d & m,
-  const Eigen::Vector3d & M,
-  Eigen::Matrix3d & pl)
-{
-  get_plane_mid(m, M, pl);
 }
 
 double get_bounds(
@@ -240,7 +223,6 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
   appearance_mimicking_surfaces(V, F, o_m, lambda_lo_m, lambda_hi_m, ind_fixed, lambda_known_m, weights, mu_ind, DV_m);
   appearance_mimicking_surfaces(V, F, o_l, lambda_lo_l, lambda_hi_l, ind_fixed, lambda_known_l, weights, mu_ind, DV_l);
   appearance_mimicking_surfaces(V, F, o_r, lambda_lo_r, lambda_hi_r, ind_fixed, lambda_known_r, weights, mu_ind, DV_r);
-//  igl::write_triangle_mesh("../data/output.obj",DV,F);
 
   // 0 - do not show, 1 - show mid view,
   // 2 - show left view, 3 - show right view
