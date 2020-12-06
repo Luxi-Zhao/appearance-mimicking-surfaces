@@ -108,7 +108,7 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
   Eigen::VectorXi mu_ind(V.rows());
   mu_ind.setZero();
 
-  deform(V, F, o, lambda_lo, lambda_hi, ind_fixed, lambda_known, weights, mu_ind, DV);
+  appearance_mimicking_surfaces(V, F, o, lambda_lo, lambda_hi, ind_fixed, lambda_known, weights, mu_ind, DV);
 //  igl::write_triangle_mesh("../data/output.obj",DV,F);
 
   bool show_deform = false;

@@ -132,7 +132,7 @@ void diag_concat(
 }
 
 
-void deform(
+void appearance_mimicking_surfaces(
   const Eigen::MatrixXd & V,
   const Eigen::MatrixXi & F,
   const Eigen::RowVector3d & o,
