@@ -175,7 +175,10 @@ int main(int argc, char *argv[])
     (argc>1?argv[1]:"../data/icosphere.obj"),V,F);
   igl::opengl::glfw::Viewer viewer;
   std::cout<<R"(
-[space]  Toggle whether displaying original mesh or deformed mesh
+[space]  Display original mesh
+m        Display mesh deformed from middle viewpoint
+l        Display mesh deformed from left viewpoint
+r        Display mesh deformed from right viewpoint
 p        Toggle debug points (red - bounding box, green - view point, blue - fixed vertex)
 )";
   Eigen::Matrix<unsigned char,Eigen::Dynamic,Eigen::Dynamic> R,G,B,A;

@@ -15,8 +15,8 @@ See
 
 Once built, you can execute the demo from inside the `build/` by running
 
-    ./ams [path to mesh.obj]
-
+    ./ams [path to mesh.obj] [path to matcap image]
+The example uses [MatCaps](https://libigl.github.io/tutorial/#matcaps) to style the mesh and optionally uses matlab to process long-running computations for large meshes.
 
 ## Background
 See `report/entry.md`.
