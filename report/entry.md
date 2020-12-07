@@ -20,7 +20,7 @@ When surface $S$ is represented by a triangle mesh $M$,  points $p'$ on $S$ are 
 $$
 \bold{v}_i = \bold{o} + \Vert \bold{v}_i - \bold{o} \Vert \frac{\bold{v}_i - \bold{o}}{\Vert \bold{v}_i - \bold{o} \Vert} = \bold{o} + \lambda_i \bold{\hat{v}}_i
 $$
-$\bold{\hat{v}}_i$ is the unit vector pointing in the direction of $\bold{ov_i}$. $\lambda_i$ measures the distance between $\bold{o}$ and $\bold{v}_i$. This representation is convenient because $M$ (deformed mesh) and $M^o$ (original mesh) share the same set of $\bold{\hat{v}}_i$. Their differences are solely expressed by $\lambda_i$ and $\lambda_i^o$. Depth constraints for each vertex of $M$ can be specified as a upper bound and a lower bound on $\lambda_i$:
+$\bold{\hat{v}}_i$ is the unit vector pointing in the direction of $\bold{ov_i}$. $\lambda_i$ measures the distance between $\bold{o}$ and $\bold{v}_i$. This representation is convenient because $M$ (deformed mesh) and $M^o$ (original mesh) share the same set of $\bold{\hat{v}}_i$. Their differences are entirely expressed by $\lambda_i$ and $\lambda_i^o$. Depth constraints for each vertex of $M$ can be specified as a upper bound and a lower bound on $\lambda_i$:
 $$
 \lambda^{min}_i \leq \lambda_i \leq \lambda^{max}_i
 $$
@@ -73,7 +73,7 @@ Aside from depth constraints, we also need to fix the value of $\lambda_k$ for o
 We now have quadratic programming problem that can be solved using the libigl active set solver:
 $$
 \begin{align*}
-& \min_{\bold{\lambda}, \bold{\mu}} \Vert \bold{Q} \bold{\lambda} \Vert^2\\
+& \min_{\bold{\lambda}} \Vert \bold{Q} \bold{\lambda} \Vert^2\\
 \\
 & \text{subject to } \\ 
 & \bold{\lambda}^{min} \leq \bold{\lambda} \leq \bold{\lambda}^{max} \\
@@ -101,9 +101,9 @@ For further implementation details, see `main.cpp`, which creates appearance-mim
 
 | Original Mesh                                                | Deformed Mesh                                                | Original Mesh                                                | Deformed Mesh                                                | Original Mesh                                                | Deformed Mesh                                                |
 | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ | ------------------------------------------------------------ |
-| <img src="orig_bunny.png" alt="original bunny" style="zoom:20%;" /> | <img src="deform_bunny_front.png" alt="deformed bunny" style="zoom:12%;" /><img src="deform_bunny.png" alt="deformed bunny" style="zoom:20%;" /> | <img src="orig_knight.png" alt="original knight" style="zoom:20%;" /> | <img src="deform_knight.png" alt="deformed knight" style="zoom:20%;" /> | <img src="orig_dragon.png" alt="original dragon" style="zoom:20%;" /> | <img src="d_dragon.png" alt="deformed dragon" style="zoom:20%;" /> |
+| <img src="orig_bunny.png" alt="original bunny" style="zoom:20%;" /> | <img src="deform_bunny_front.png" alt="deformed bunny" style="zoom:12%;" /><img src="deform_bunny.png" alt="deformed bunny" style="zoom:20%;" /> | <img src="orig_knight.png" alt="original knight" style="zoom:20%;" /> | <img src="deform_knight.png" alt="deformed knight" style="zoom:20%;" /> | <img src="orig_dragon.png" alt="original dragon" style="zoom:20%;" /> | <img src="d_dragon.png" alt="deformed dragon" style="zoom:15%;" /><img src="d_dragon_front.png" alt="deformed dragon" style="zoom:15%;" /> |
 
-​																	The example `main.cpp` deforms a mesh along the z-axis. 
+​													The example `main.cpp` deforms a mesh along the z-axis (front view). 
 
 ## References
 
