@@ -194,7 +194,7 @@ void appearance_mimicking_surfaces(
   Eigen::SparseMatrix<double> Q;
   Q = D_A * D_W * (L_tilde0 * D_v_hat - D_L_theta) * S;
 
-  std::cout << "getting F" << std::endl;
+  std::cout << "Getting F... this might take a while" << std::endl;
   // F
   int n_mu = mu_ind.maxCoeff() + 1;
   double alpha_sqrt = sqrt(pow(10.0, -7.0));
@@ -239,8 +239,12 @@ void appearance_mimicking_surfaces(
   Eigen::VectorXd Beq, Bieq;
   Eigen::VectorXd lx(n), ux(n), mu_l, mu_u;
 
-  // Not really sure what the bounds should
-  // be for mu's
+  // TODO Implementation for mu needs more investigation
+  // Not sure what the bounds should be for
+  // mu's. Whatever the bounds are, the solver
+  // seems to assign mu with the smallest
+  // magnitude allowed. If there are no bounds
+  // mu would be 0's.
   mu_l = Eigen::VectorXd::Ones(n_mu) * 1.0;
   mu_u = Eigen::VectorXd::Ones(n_mu) * 1.5;
   lx << lambda_lo, mu_l;
@@ -249,7 +253,7 @@ void appearance_mimicking_surfaces(
   igl::active_set_params as;
   Eigen::VectorXd x;
 
-  std::cout << "solving for x's" << std::endl;
+  std::cout << "Solving for x... this might take a while" << std::endl;
   igl::active_set(K, B, b, Y, Aeq, Beq, Aieq, Bieq, lx, ux, as, x);
 
   // Extract lambda and mu from x
