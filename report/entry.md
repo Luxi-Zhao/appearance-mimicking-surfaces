@@ -314,4 +314,4 @@ I guessed from the line "the scale invariance introduces rank deficiency in the 
 
 [^2]: Mark Meyer, Mathieu Desbrun, Peter Schröder and Alan H. Barr, [Discrete Differential-Geometry Operators for Triangulated 2-Manifolds](https://www.google.com/search?q=Discrete+Differential-Geometry+Operators+for+Triangulated+2-Manifolds), 2003.
 
-[^3 ]: Libigl tutorial on bounding boxes: https://github.com/libigl/libigl/blob/master/tutorial/105_Overlays/main.cpp
+[^3]: Libigl tutorial on bounding boxes: https://github.com/libigl/libigl/blob/master/tutorial/105_Overlays/main.cpp
