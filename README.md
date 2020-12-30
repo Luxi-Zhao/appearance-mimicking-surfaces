@@ -8,7 +8,24 @@ This repo is an libigl style implementation of the [Appearance Mimicking Surface
 
 ## Installation, Layout, and Compilation
 
-See
+### Compilation
+
+Starting in the root project directory, issue:
+
+    mkdir build
+    cd build
+    cmake ..
+    make 
+
+Debug in debug mode with assertions enabled. For Unix users on the
+command line use: 
+ 
+     cmake -DCMAKE_BUILD_TYPE=Debug ../
+ 
+but then try out your code in _release mode_ for much better performance
+
+     cmake -DCMAKE_BUILD_TYPE=Release ../
+For more details, see
 [introduction](http://github.com/alecjacobson/geometry-processing-introduction).
 
 ## Execution
