@@ -3,6 +3,7 @@
 #include <igl/massmatrix.h>
 #include <igl/repdiag.h>
 #include <igl/invert_diag.h>
+#include <igl/speye.h>
 #include <igl/min_quad_with_fixed.h>
 #include <igl/active_set.h>
 #include <cmath>
@@ -13,7 +14,7 @@ typedef Eigen::Triplet<double> T;
 
 // If true, computationally intensive operations will be
 // sent to a newly launched MATLAB engine
-bool USE_MATLAB = true;
+bool USE_MATLAB = false;
 
 // D_A
 void voronoi_area(
@@ -120,6 +121,41 @@ void get_L_theta(
 
   L_theta.setZero();
   L_theta = D_S_lambda0.inverse() * L_tilde0 * D_v_hat * S_lambda0;
+}
+
+void get_ieq_constraint(
+  const Eigen::VectorXd & lambda_lo,
+  const Eigen::VectorXd & lambda_hi,
+  const Eigen::VectorXi & mu_ind,
+  Eigen::SparseMatrix<double> & Aieq)
+{
+  int n = lambda_lo.rows();
+  Eigen::SparseMatrix<double> ones, n_ones;
+  igl::speye(n, ones);
+  n_ones = -ones;
+
+  std::vector<T> lo_triplets, hi_triplets;
+  lo_triplets.reserve(n);
+  hi_triplets.reserve(n);
+  for(int i = 0; i < n; i++) {
+    lo_triplets.push_back(T(i, mu_ind(i), lambda_lo(i)));
+    hi_triplets.push_back(T(i, mu_ind(i), -lambda_hi(i)));
+  }
+
+  int n_mu = mu_ind.maxCoeff() + 1;
+  Eigen::SparseMatrix<double> m_lo, m_hi;
+  m_lo.resize(n, n_mu);
+  m_hi.resize(n, n_mu);
+  m_lo.setFromTriplets(lo_triplets.begin(), lo_triplets.end());
+  m_hi.setFromTriplets(hi_triplets.begin(), hi_triplets.end());
+
+  Eigen::SparseMatrix<double> lo_bd, hi_bd;
+  igl::cat(2, n_ones, m_lo, lo_bd);
+  igl::cat(2, ones, m_hi, hi_bd);
+  igl::cat(1, lo_bd, hi_bd, Aieq);
+
+  std::cout << "Aieq rows: " << Aieq.rows() << std::endl;
+  std::cout << "Aieq cols: " << Aieq.cols() << std::endl;
 }
 
 void diag_concat(
@@ -230,31 +266,30 @@ void appearance_mimicking_surfaces(
 
   // Fix the value for lambda for one vertex
   // to get a unique solution
+  // TODO should fix one lambda for each vertex group
   Eigen::VectorXi b(1);
   Eigen::VectorXd Y(1);
+  Eigen::VectorXd lambda_cur = (V.rowwise() - o).rowwise().norm();
   b(0) = ind_fixed;
-  Y(0) = lambda_known;
+  Y(0) = lambda_cur(ind_fixed);
+//  Y(0) = lambda_known;
 
   Eigen::SparseMatrix<double> Aeq, Aieq;
   Eigen::VectorXd Beq, Bieq;
-  Eigen::VectorXd lx(n), ux(n), mu_l, mu_u;
+  Eigen::VectorXd lx, ux;
 
-  // TODO Implementation for mu needs more investigation
-  // Not sure what the bounds should be for
-  // mu's. Whatever the bounds are, the solver
-  // seems to assign mu with the smallest
-  // magnitude allowed. If there are no bounds
-  // mu would be 0's.
-  mu_l = Eigen::VectorXd::Ones(n_mu) * 1.0;
-  mu_u = Eigen::VectorXd::Ones(n_mu) * 1.5;
-  lx << lambda_lo, mu_l;
-  ux << lambda_hi, mu_u;
+  get_ieq_constraint(lambda_lo, lambda_hi, mu_ind, Aieq);
+  Bieq = Eigen::VectorXd::Zero(2 * V.rows());
+
+  std::cout << "Aieq is: " << Aieq.toDense() << std::endl;
+  std::cout << "Bieq is: " << Bieq << std::endl;
 
   igl::active_set_params as;
   Eigen::VectorXd x;
 
   std::cout << "Solving for x... this might take a while" << std::endl;
   igl::active_set(K, B, b, Y, Aeq, Beq, Aieq, Bieq, lx, ux, as, x);
+  std::cout << "x is: " << x << std::endl;
 
   // Extract lambda and mu from x
   Eigen::VectorXd lambda, mu, mu_arr(V.rows());
