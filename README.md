@@ -6,9 +6,7 @@ This repo is an libigl style implementation of the [Appearance Mimicking Surface
 >     git clone --recursive http://github.com/[username]/appearance-mimicking-surfaces.git
 >
 
-## Installation, Layout, and Compilation
-
-### Compilation
+## Compilation
 
 Starting in the root project directory, issue:
 
@@ -33,7 +31,11 @@ For more details, see
 Once built, you can execute the demo from inside the `build/` by running
 
     ./ams [path to mesh.obj] [path to matcap image]
-The example uses [MatCaps](https://libigl.github.io/tutorial/#matcaps) to style the mesh and optionally uses matlab to process long-running computations for large meshes.
+The example uses [MatCaps](https://libigl.github.io/tutorial/#matcaps) to style the mesh and optionally uses MATLAB to process long-running computations for large meshes. If there are `matlab: Command not found` errors, try running 
+     
+     export PATH=/Applications/MATLAB_R2019b.app/bin/:$PATH
+     
+
 
 ## Background
 See `report/entry.md`.

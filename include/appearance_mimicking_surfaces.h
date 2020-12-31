@@ -37,7 +37,6 @@ void appearance_mimicking_surfaces(
   const Eigen::VectorXd & lambda_lo,
   const Eigen::VectorXd & lambda_hi,
   const Eigen::VectorXi & ind_fixed,
-  double lambda_known,
   const Eigen::VectorXd & weights,
   const Eigen::VectorXi & mu_ind,
   Eigen::MatrixXd & DV);

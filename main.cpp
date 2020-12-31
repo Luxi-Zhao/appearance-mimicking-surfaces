@@ -1,5 +1,6 @@
 #include "appearance_mimicking_surfaces.h"
 #include <igl/read_triangle_mesh.h>
+#include <igl/write_triangle_mesh.h>
 #include <igl/parula.h>
 #include <igl/png/readPNG.h>
 #include <igl/opengl/glfw/Viewer.h>
@@ -132,7 +133,7 @@ void get_plane_right(
   pl << lower_left_hi, lower_left_lo, upper_right_lo;
 }
 
-double get_bounds(
+void get_bounds(
   const Eigen::RowVector3d & o,
   const Eigen::MatrixXd & V,
   const Eigen::Matrix3d & pl,
@@ -161,9 +162,6 @@ double get_bounds(
 
   lambda_lo = lambda_min / denom.array();
   lambda_hi = lambda_max / denom.array();
-
-  double lambda_known = (lambda_lo(ind_fixed) + lambda_hi(ind_fixed)) / 2.0;
-  return lambda_known;
 }
 
 int main(int argc, char *argv[])
@@ -230,7 +228,6 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
   Eigen::RowVector3d o, o_m, o_l, o_r;
   Eigen::Matrix3d pl_m, pl_l, pl_r;
   Eigen::VectorXd lambda_lo_m, lambda_lo_l, lambda_lo_r, lambda_hi_m, lambda_hi_l, lambda_hi_r;
-  double lambda_known_m, lambda_known_l, lambda_known_r;
 
   get_viewpoint_lower_mid(m, M, o_m);
   get_viewpoint_lower_left(m, M, o_l);
@@ -241,40 +238,27 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
   get_plane_left(m, M, pl_l);
   get_plane_right(m, M, pl_r);
 
-  lambda_known_m = get_bounds(o_m, V, pl_m, 0, lambda_lo_m, lambda_hi_m);
-  lambda_known_l = get_bounds(o_l, V, pl_l, 0, lambda_lo_l, lambda_hi_l);
-  lambda_known_r = get_bounds(o_r, V, pl_r, 0, lambda_lo_r, lambda_hi_r);
+  get_bounds(o_m, V, pl_m, 0, lambda_lo_m, lambda_hi_m);
+  get_bounds(o_l, V, pl_l, 0, lambda_lo_l, lambda_hi_l);
+  get_bounds(o_r, V, pl_r, 0, lambda_lo_r, lambda_hi_r);
 
   Eigen::VectorXd weights(V.rows());
   weights.setOnes();
 
   // Calculate mu and known indices
   Eigen::VectorXi mu_ind(V.rows());
-  double threshold = (m(1) + M(1)) / 2.0;
-  int ind0 = -1, ind1 = -1;
-  for(int i = 0; i < V.rows(); i++) {
-    double height = V(i, 1);
-    if(height <= threshold) {
-      mu_ind(i) = 0;
-      if(ind0 < 0) {
-        ind0 = i;
-      }
-    } else {
-      mu_ind(i) = 1;
-      if(ind1 < 0) {
-        ind1 = i;
-      }
-    }
-  }
+  mu_ind.setZero();
 
-  Eigen::VectorXi ind_fixed(2);
-  ind_fixed(0) = ind0;
-  ind_fixed(1) = ind1;
-  // TODO deprecate lambda_known
+  Eigen::VectorXi ind_fixed(1);
+  ind_fixed(0) = 0;
 
-  appearance_mimicking_surfaces(V, F, o_m, lambda_lo_m, lambda_hi_m, ind_fixed, lambda_known_m, weights, mu_ind, DV_m);
-  appearance_mimicking_surfaces(V, F, o_l, lambda_lo_l, lambda_hi_l, ind_fixed, lambda_known_l, weights, mu_ind, DV_l);
-  appearance_mimicking_surfaces(V, F, o_r, lambda_lo_r, lambda_hi_r, ind_fixed, lambda_known_r, weights, mu_ind, DV_r);
+  appearance_mimicking_surfaces(V, F, o_m, lambda_lo_m, lambda_hi_m, ind_fixed, weights, mu_ind, DV_m);
+  appearance_mimicking_surfaces(V, F, o_l, lambda_lo_l, lambda_hi_l, ind_fixed, weights, mu_ind, DV_l);
+  appearance_mimicking_surfaces(V, F, o_r, lambda_lo_r, lambda_hi_r, ind_fixed, weights, mu_ind, DV_r);
+
+  igl::write_triangle_mesh(("../data/out_m.obj"),DV_m,F);
+  igl::write_triangle_mesh(("../data/out_l.obj"),DV_l,F);
+  igl::write_triangle_mesh(("../data/out_r.obj"),DV_r,F);
 
   // 0 - do not show, 1 - show mid view,
   // 2 - show left view, 3 - show right view

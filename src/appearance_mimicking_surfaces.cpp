@@ -14,7 +14,7 @@ typedef Eigen::Triplet<double> T;
 
 // If true, computationally intensive operations will be
 // sent to a newly launched MATLAB engine
-bool USE_MATLAB = false;
+bool USE_MATLAB = true;
 
 // D_A
 void voronoi_area(
@@ -180,7 +180,6 @@ void appearance_mimicking_surfaces(
   const Eigen::VectorXd & lambda_lo,
   const Eigen::VectorXd & lambda_hi,
   const Eigen::VectorXi & ind_fixed,
-  double lambda_known,
   const Eigen::VectorXd & weights,
   const Eigen::VectorXi & mu_ind,
   Eigen::MatrixXd & DV)
@@ -272,7 +271,7 @@ void appearance_mimicking_surfaces(
 
   b = ind_fixed;
   for(int i = 0; i < n_mu; i++) {
-    Y(i) = lambda_cur(ind_fixed(i));
+    Y(i) = (lambda_lo(ind_fixed(i)) + lambda_hi(ind_fixed(i))) / 2.0;
   }
 
   Eigen::SparseMatrix<double> Aeq, Aieq;
