@@ -227,7 +227,6 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
     2, 6,
     7 ,3;
 
-  int ind_fixed = 0;
   Eigen::RowVector3d o, o_m, o_l, o_r;
   Eigen::Matrix3d pl_m, pl_l, pl_r;
   Eigen::VectorXd lambda_lo_m, lambda_lo_l, lambda_lo_r, lambda_hi_m, lambda_hi_l, lambda_hi_r;
@@ -242,15 +241,36 @@ p        Toggle debug points (red - bounding box, green - view point, blue - fix
   get_plane_left(m, M, pl_l);
   get_plane_right(m, M, pl_r);
 
-  lambda_known_m = get_bounds(o_m, V, pl_m, ind_fixed, lambda_lo_m, lambda_hi_m);
-  lambda_known_l = get_bounds(o_l, V, pl_l, ind_fixed, lambda_lo_l, lambda_hi_l);
-  lambda_known_r = get_bounds(o_r, V, pl_r, ind_fixed, lambda_lo_r, lambda_hi_r);
+  lambda_known_m = get_bounds(o_m, V, pl_m, 0, lambda_lo_m, lambda_hi_m);
+  lambda_known_l = get_bounds(o_l, V, pl_l, 0, lambda_lo_l, lambda_hi_l);
+  lambda_known_r = get_bounds(o_r, V, pl_r, 0, lambda_lo_r, lambda_hi_r);
 
   Eigen::VectorXd weights(V.rows());
   weights.setOnes();
 
+  // Calculate mu and known indices
   Eigen::VectorXi mu_ind(V.rows());
-  mu_ind.setZero();
+  double threshold = (m(1) + M(1)) / 2.0;
+  int ind0 = -1, ind1 = -1;
+  for(int i = 0; i < V.rows(); i++) {
+    double height = V(i, 1);
+    if(height <= threshold) {
+      mu_ind(i) = 0;
+      if(ind0 < 0) {
+        ind0 = i;
+      }
+    } else {
+      mu_ind(i) = 1;
+      if(ind1 < 0) {
+        ind1 = i;
+      }
+    }
+  }
+
+  Eigen::VectorXi ind_fixed(2);
+  ind_fixed(0) = ind0;
+  ind_fixed(1) = ind1;
+  // TODO deprecate lambda_known
 
   appearance_mimicking_surfaces(V, F, o_m, lambda_lo_m, lambda_hi_m, ind_fixed, lambda_known_m, weights, mu_ind, DV_m);
   appearance_mimicking_surfaces(V, F, o_l, lambda_lo_l, lambda_hi_l, ind_fixed, lambda_known_l, weights, mu_ind, DV_l);

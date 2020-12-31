@@ -179,7 +179,7 @@ void appearance_mimicking_surfaces(
   const Eigen::RowVector3d & o,
   const Eigen::VectorXd & lambda_lo,
   const Eigen::VectorXd & lambda_hi,
-  int ind_fixed,
+  const Eigen::VectorXi & ind_fixed,
   double lambda_known,
   const Eigen::VectorXd & weights,
   const Eigen::VectorXi & mu_ind,
@@ -264,15 +264,16 @@ void appearance_mimicking_surfaces(
   // There are no linear coefficients so set B to 0
   Eigen::MatrixXd B = Eigen::MatrixXd::Zero(n, 1);
 
-  // Fix the value for lambda for one vertex
+  // Fix the value for lambda for one vertex for each group
   // to get a unique solution
-  // TODO should fix one lambda for each vertex group
-  Eigen::VectorXi b(1);
-  Eigen::VectorXd Y(1);
+  Eigen::VectorXi b(n_mu);
+  Eigen::VectorXd Y(n_mu);
   Eigen::VectorXd lambda_cur = (V.rowwise() - o).rowwise().norm();
-  b(0) = ind_fixed;
-  Y(0) = lambda_cur(ind_fixed);
-//  Y(0) = lambda_known;
+
+  b = ind_fixed;
+  for(int i = 0; i < n_mu; i++) {
+    Y(i) = lambda_cur(ind_fixed(i));
+  }
 
   Eigen::SparseMatrix<double> Aeq, Aieq;
   Eigen::VectorXd Beq, Bieq;
@@ -280,9 +281,6 @@ void appearance_mimicking_surfaces(
 
   get_ieq_constraint(lambda_lo, lambda_hi, mu_ind, Aieq);
   Bieq = Eigen::VectorXd::Zero(2 * V.rows());
-
-  std::cout << "Aieq is: " << Aieq.toDense() << std::endl;
-  std::cout << "Bieq is: " << Bieq << std::endl;
 
   igl::active_set_params as;
   Eigen::VectorXd x;
