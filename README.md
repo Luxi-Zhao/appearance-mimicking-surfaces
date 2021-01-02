@@ -1,10 +1,13 @@
 # Appearance Mimicking Surfaces
 This repo is an libigl style implementation of the [Appearance Mimicking Surfaces](https://cims.nyu.edu/gcl/papers/mimicking-2014.pdf) paper.
 
-> **To get started:** 
-> 
->     git clone --recursive http://github.com/[username]/appearance-mimicking-surfaces.git
->
+![](report/bunny_blender.png)
+(Results rendered using Blender)
+
+**To get started:** 
+ 
+     git clone --recursive http://github.com/[username]/appearance-mimicking-surfaces.git
+
 
 ## Compilation
 
@@ -15,12 +18,11 @@ Starting in the root project directory, issue:
     cmake ..
     make 
 
-Debug in debug mode with assertions enabled. For Unix users on the
-command line use: 
+Debug in debug mode with assertions enabled:
  
      cmake -DCMAKE_BUILD_TYPE=Debug ../
  
-but then try out your code in _release mode_ for much better performance
+Try out your code in _release mode_ for much better performance:
 
      cmake -DCMAKE_BUILD_TYPE=Release ../
 For more details, see
