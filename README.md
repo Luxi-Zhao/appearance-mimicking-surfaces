@@ -1,5 +1,7 @@
 # Appearance Mimicking Surfaces
-This repo is an libigl style implementation of the [Appearance Mimicking Surfaces](https://cims.nyu.edu/gcl/papers/mimicking-2014.pdf) paper.
+This repo is an libigl style implementation of the [Appearance Mimicking Surfaces](https://cims.nyu.edu/gcl/papers/mimicking-2014.pdf) paper by Christian Schüller, Daniele Panozzo, and Olga Sorkine-Hornung. 
+
+Appearance-mimicking surfaces are thin surfaces whose normals approximate the normals of a 3D shape. Commonly seen examples of such surfaces are bas-reliefs. Given a viewpoint and per-vertex depth bounds, the algorithm finds a globally optimal surface that preserves the appearance of the target shape when observed from the designated viewpoint, while satisfying the depth constraints. 
 
 ![](report/bunny_blender.png)
 (Results rendered using Blender)
