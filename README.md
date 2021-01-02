@@ -27,7 +27,7 @@ Debug in debug mode with assertions enabled:
 Try out your code in _release mode_ for much better performance:
 
      cmake -DCMAKE_BUILD_TYPE=Release ../
-For more details, see
+For more details regarding project structure and setup, see
 [introduction](http://github.com/alecjacobson/geometry-processing-introduction).
 
 ## Execution
@@ -41,6 +41,6 @@ The example uses [MatCaps](https://libigl.github.io/tutorial/#matcaps) to style 
      
 
 
-## Background
-See `report/entry.md`.
+## Implementation
+See https://luxi-zhao.github.io/appearance-mimicking-surfaces/.
 
