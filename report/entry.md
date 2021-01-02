@@ -16,6 +16,8 @@ Here, $\phi(\bold{p}, \bold{o}) = \bold{p}'$ on surface $S$. $\bold{n}^{S^{o}}_\
 
 ## Discretization
 
+#### Preserving Surface Similarity
+
 When surface $S$ is represented by a triangle mesh $M$,  points $p'$ on $S$ are approximated by vertices $\bold{v}_i$. Each vertex $\bold{v}_i$ can be written as:
 $$
 \bold{v}_i = \bold{o} + \Vert \bold{v}_i - \bold{o} \Vert \frac{\bold{v}_i - \bold{o}}{\Vert \bold{v}_i - \bold{o} \Vert} = \bold{o} + \lambda_i \bold{\hat{v}}_i
@@ -68,32 +70,62 @@ Let $n = |\bold{V}^o|$,
 * $\bold{\tilde{L}}^o$, also 3n x 3n, is the Kronecker product between the cotangent matrix and 3 x 3 identity matrix: $\bold{\tilde{L}}^o = \bold{L}^o \otimes \bold{I}_3$
 * $\bold{S}$ is a 3n x n selector matrix that associates each $\lambda_i$ with the x, y, z coordinates of $\bold{v}_i$: $\bold{I}_n \otimes [1,1,1]^T$
 
-Aside from depth constraints, we also need to fix the value of $\lambda_k$ for one vertex $\bold{v}_k$ to obtain a unique solution. $\lambda_k$ is a pre-calculated value $b$ passed into the algorithm. For example, $\lambda_k$ can be set to the average of its upper and lower bound.
+#### Allowing Disconnected Pieces
 
-We now have quadratic programming problem that can be solved using the libigl active set solver:
+Some meshes are composed of disconnected pieces. There might be use cases where each deformed piece needs to occupy a different location. In this case, the $\bold{\lambda}$ bounds need to be discontinuous as well. For example, suppose mesh A is a "connected" mesh with 4 vertices. Its $\bold{\lambda}$ bounds  could be:
+
+* $\bold{\lambda}_{min}$: 10, 10, 10, 10
+* $\bold{\lambda}_{max}$: 11, 11, 11, 11
+
+Suppose mesh B is a "disconnected" mesh with 4 vertices and 2 vertex groups. Its $\bold{\lambda}$ bounds could be:
+
+* $\bold{\lambda}_{min}$: 10, 10, 11, 11
+* $\bold{\lambda}_{max}$: 11, 11, 12, 12
+
+This complicates user input because users need to calculate different bounds for different vertex groups. To simplify user input for this use case, the paper introduces a vector $\bold{\mu}$, where each element $\mu_g$ is a scaling factor for an independent group of vertices such that $\mu_g \lambda^{min}_i \leq \lambda_i \leq \mu_g \lambda^{max}_i$ holds for all vertices $i$ in group $g$. $|\bold{\mu}| =$ number of groups. 
+
+To obtain a unique solution for $\mu_g$, for each group $g$, we can fix the value of $\lambda_{gk}$ for a (randomly selected) vertex $\bold{v}_{gk}$. The value of $\lambda_{gk}$ then affects the value of $\mu_g$.
+
+#### Optimization
+
+Finally, we optimize for both $\lambda$ and $\mu$:
 $$
 \begin{align*}
-& \min_{\bold{\lambda}} \Vert \bold{Q} \bold{\lambda} \Vert^2\\
+& \min_{\bold{\lambda}, \bold{\mu}} \Vert \bold{Q} \bold{\lambda} \Vert^2 + \alpha \Vert \bold{\mu} \Vert^2 \\
 \\
 & \text{subject to } \\ 
-& \bold{\lambda}^{min} \leq \bold{\lambda} \leq \bold{\lambda}^{max} \\
-& \lambda_k = b
-
+& \bold{C}_I [\lambda \;\; \mu]^T \le \bold{d} \\
+& \bold{C}_E [\lambda \;\; \mu]^T = \bold{b} \\
 \end{align*}
 $$
+$\alpha$ Is set to $10^{-7}$ in the paper. $\bold{C}_I$ are the inequality constraints derived from $\mu_g \lambda^{min}_i \leq \lambda_i \leq \mu_g \lambda^{max}_i$. $\bold{C}_E$ are the equality constraints derived from fixing $\lambda_{gk}$.
+
+Combining $\bold{\lambda}$ and $\bold{\mu}$ into one unknown vector $\bold{x}$, we now have quadratic programming problem that can be solved using the libigl active set solver:
 
 ```c++
 igl::active_set_params as;
-Eigen::VectorXd lambda; // n x 1
+Eigen::VectorXd x; // (n + |mu|) x 1
 
-// Q - D_A * D_w * (L_tilde0 * D_v_hat - D_L_theta) * S, 3n x n
 // B - linear coefficients, set to 0
-// b - index of lambda to be fixed
-// Y - value of the fixed lambda
-// Aeq, Beq, Aieq, Bieq - empty matrices
-// lx, ux - upper and lower lambda bounds
-igl::active_set(Q.transpose() * Q, B, b, Y, Aeq, Beq, Aieq, Bieq, lx, ux, as, lambda);
+// b - index of lambdas to be fixed
+// Y - value of the fixed lambdas
+// Aeq, Beq - empty matrices
+// Aieq - inequality constraint matrix C_I
+// Bieq - inequality constraint d, set to a 0 vector with dimension (n + |mu|) x 1
+// lx, ux - empty vectors
+// x - [lambda; mu]
+igl::active_set(F.transpose() * F, B, b, Y, Aeq, Beq, Aieq, Bieq, lx, ux, as, x);
 ```
+
+where F is:
+$$
+F = 
+\begin{bmatrix}
+\bold{Q} & \bold{0} \\
+\bold{0} & \sqrt{\alpha} \cdot \bold{I}
+\end{bmatrix}
+$$
+The deformed vertices are retrieved by multiplying each $\lambda_i$ with $\mu_g$. 
 
 ## Demo
 
@@ -102,8 +134,6 @@ igl::active_set(Q.transpose() * Q, B, b, Y, Aeq, Beq, Aieq, Bieq, lx, ux, as, la
 | <img src="orig_bunny.png" alt="original bunny" style="zoom:20%;" /> | <img src="deform_bunny_front.png" alt="deformed bunny" style="zoom:12%;" /><img src="deform_bunny.png" alt="deformed bunny" style="zoom:20%;" /> | <img src="orig_knight.png" alt="original knight" style="zoom:20%;" /> | <img src="deform_knight.png" alt="deformed knight" style="zoom:20%;" /> | <img src="orig_dragon.png" alt="original dragon" style="zoom:20%;" /> | <img src="d_dragon.png" alt="deformed dragon" style="zoom:15%;" /><img src="d_dragon_front.png" alt="deformed dragon" style="zoom:15%;" /> |
 
 ​													The example `main.cpp` deforms a mesh along the z-axis (front view). 
-
-
 
 ## Implementation Details
 
@@ -228,6 +258,39 @@ $$
 \end{bmatrix}
 $$
 
+#### Getting $\bold{C}_I$
+
+* Dimension: 2n x (n + $|\mu|$)
+
+We construct $\bold{C}_I$ such that $\mu_g \lambda^{min}_i \leq \lambda_i \leq \mu_g \lambda^{max}_i$ can be transformed into $\bold{C}_I [\lambda \;\; \mu]^T \le \bold{0}$. Below is an example of an inequality constraint for a mesh with 4 vertices and 2 groups. 
+$$
+\begin{bmatrix}
+
+-1 & 0 & 0 & 0 & \lambda_{min,00} & 0 \\
+0 & -1 & 0 & 0 & \lambda_{min,01} & 0 \\
+0 & 0 & -1 & 0 & 0 & \lambda_{min,10} \\
+0 & 0 & 0  & -1 & 0 & \lambda_{min,11} \\
+1 & 0 & 0 & 0 & -\lambda_{max,00} & 0 \\
+0 & 1 & 0 & 0 & -\lambda_{max,01} & 0 \\
+0 & 0 & 1 & 0 & 0 & -\lambda_{max,10} \\
+0 & 0 & 0 & 1 & 0 & -\lambda_{max,11} \\
+
+\end{bmatrix}
+
+\begin{bmatrix}
+\lambda_0 \\
+\lambda_1 \\
+\lambda_2 \\
+\lambda_3 \\
+\mu_0 \\
+\mu_1 \\
+\end{bmatrix}
+
+\le
+
+\bold{0}
+
+$$
 
 
 #### Getting Bounds on $\bold{\lambda}$
@@ -255,58 +318,10 @@ $$
 & upperbound = \lambda_{min} / (\bold{\hat{v}}_i \; \cdot \; \bold{\hat{n}}_i)
 \end{align*}
 $$
-  
 
-#### Future Directions & Challenges
+## Future Directions & Challenges
 
-##### Allowing Disconnected Pieces
-
-The paper introduces a vector $\bold{\mu}$ that allows the depth range constraints to be discontinuous. Each element $\mu_g$ is a scaling factor for an independent group of vertices such that $\mu_g \lambda^{min}_i \leq \lambda_i \leq \mu_g \lambda^{max}_i$ holds for all vertices $i$ in group $g$. $|\bold{\mu}| =$ number of groups. The paper optimizes for both $\lambda$ and $\mu$:
-$$
-\begin{align*}
-& \min_{\bold{\lambda}, \bold{\mu}} \Vert \bold{Q} \bold{\lambda} \Vert^2 + \alpha \Vert \bold{\mu} \Vert^2 \\
-\\
-& \text{subject to } \\ 
-& \bold{C}_I [\lambda \;\; \mu]^T \le \bold{d} \\
-& \bold{C}_E [\lambda \;\; \mu]^T = \bold{b} \\
-\end{align*}
-$$
-$\alpha$ Is set to $10^{-7}$ in the paper. $\bold{C}_I$ are the inequality constraints. $\bold{C}_E$ are the equality constraints.
-
-Combining $\bold{\lambda}$ and $\bold{\mu}$ into one unknown vector $\bold{x}$, the input into the active set solver becomes:
-
-```c++
-// B - linear coefficients, set to 0
-// b - index of lambda to be fixed
-// Y - value of the fixed lambda
-// Aeq, Beq, Aieq, Bieq - empty matrices
-// lx, ux - upper and lower lambda and mu bounds
-igl::active_set(F.transpose() * F, B, b, Y, Aeq, Beq, Aieq, Bieq, lx, ux, as, lambda);
-```
-
-where F is:
-$$
-F = 
-\begin{bmatrix}
-\bold{Q} & \bold{0} \\
-\bold{0} & \sqrt{\alpha} \cdot \bold{I}
-\end{bmatrix}
-$$
-The deformed vertices are retrieved by multiplying each $\lambda_i$ with $\mu_g$. 
-
-Unfortunately, I was not able to complete the implementation for this part. One challenge is that I am not sure what the inequality constraints ($\bold{C}_I$) are when $\bold{\mu}$ is involved. Without $\mu$, the inequality constraints are clear:  $ \bold{\lambda}^{min} \leq \bold{\lambda} \leq \bold{\lambda}^{max}$. Then I could conveniently set `lx` = $\lambda^{min}$, `ux` = $\lambda^{max}$. However, the paper does not explicitly mention the constraints on $\mu$. 
-
-- If there are no constraints, the energy minimization encourages $\bold{\mu}$ to take on a magnitude of 0. 
-- If $\mu$ is constrained by $\mu_g \lambda^{min}_i \leq \lambda_i \leq \mu_g \lambda^{max}_i$, I am having trouble re-formulating this into $\bold{C}_I [\lambda \;\; \mu]^T \le \bold{d}$ because both $\mu_g$ and $\lambda_i$ are unknowns.
-
-##### Other Challenges
-
-The paper is very detailed in describing how to construct $\bold{Q}$, which greatly helped me in my implementation. However, the description for the constraints are less detailed. Aside from $\bold{C}_I$, I had trouble finding $\bold{C}_E$, $\bold{d}$, and $\bold{b}$ as well. 
-$$
-\bold{C}_I [\lambda \;\; \mu]^T \le \bold{d} \\
-\bold{C}_E [\lambda \;\; \mu]^T = \bold{b} \\
-$$
-I guessed from the line "the scale invariance introduces rank deficiency in the optimization, but can be fixed by constraining the $\lambda_i$ of a single vertex $i$", that $\bold{C}_E [\lambda \;\; \mu]^T = \bold{b}$ means $\lambda_i = b$ for a pre-defined value $b$. 
+Although $\bold{\mu}$ frees the user from specifying individual depth constraints for each disconnected piece, I am still having trouble producing disconnected appearance mimicking surfaces. If the input mesh is all connected (like the bunny), I am not sure how to break up the faces after breaking the vertices into mulitple groups. If the input mesh has disconnected pieces, I am not sure how to determine which vertices belong to the same group, other than manually inspecting the mesh file.          
 
 ## References
 
